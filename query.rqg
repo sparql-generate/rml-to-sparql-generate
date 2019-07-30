@@ -1,0 +1,77 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rr: <http://www.w3.org/ns/r2rml#>
+PREFIX rml: <http://semweb.mmlab.be/ns/rml#>
+PREFIX ql: <http://semweb.mmlab.be/ns/ql#>
+PREFIX ex: <http://example.com/ns#>
+PREFIX fun: <http://w3id.org/sparql-generate/fn/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/> 
+
+TEMPLATE {
+
+  st:call-template(<templates/sparqlPreamble.rqg>)
+
+  "\nBASE <http://w3id.org/SPARQL-Generate-RML/> \n"
+
+  "\nGENERATE \{" BOX { "\n"
+
+    
+    TEMPLATE {
+      TEMPLATE {
+        TEMPLATE <templates/subjectMap.rqg>( ?mapping, ?referenceFormulation ) .
+
+        TEMPLATE { 
+          # https://www.w3.org/TR/r2rml/ section 6.2
+          TEMPLATE { " a " st:turtle( ?class ) " ; " }
+          WHERE { ?subjectMap rr:class ?class FILTER(ISURI(?class))} .
+
+          # https://www.w3.org/TR/r2rml/ section 6.2
+          TEMPLATE { "[ERROR: Violation of R2RML 6.2]" }
+          WHERE { ?subjectMap rr:class ?class FILTER(!ISURI(?class))} .
+        } 
+        WHERE { FILTER( BOUND(?subjectMap) && !BOUND(?subject) ) }.
+
+        TEMPLATE { 
+          "[ERROR: Support of Graphs different than rr:DefaultGraph is not supported in this implementation]" 
+        } 
+        WHERE { 
+          { ?subjectMap rr:graphMap [ rr:constant ?graph ] } UNION { ?subjectMap rr:graph ?graph }
+          FILTER( ?graph != rr:DefaultGraph )
+        } .
+
+      } WHERE {
+        { ?mapping rr:subjectMap ?subjectMap } UNION { ?mapping rr:subject ?subject }
+        ?mapping rr:predicateObjectMap ?predicateObjectMap
+      } LIMIT 1 .
+
+      BOX { "\n"
+        # https://www.w3.org/TR/r2rml/ section 6.3
+        TEMPLATE {
+          TEMPLATE <templates/predicateObjectMap.rqg>(?mapping, ?predicateObjectMap, ?referenceFormulation) .
+          ;separator=" ;\n"
+          ;after=" .\n"
+        }
+        WHERE {
+          ?mapping rr:predicateObjectMap ?predicateObjectMap
+        } .
+      } 
+      ; separator = "\n"
+    }
+    ITERATOR <iterators/mappings.rqg>() AS ?mapping ?source ?source_var ?referenceFormulation ?iterator .
+
+  } "\n}\n"
+
+  TEMPLATE {
+    "SOURCE <" ?source "> AS " ?source_var "  \n"
+  } ITERATOR <iterators/mappings.rqg>() AS ?mapping ?source ?source_var ?referenceFormulation ?iterator . 
+
+
+  TEMPLATE {
+    "ITERATOR " TEMPLATE <templates/referenceFormulation.rqg>( ?mapping, ?source, ?source_var, ?referenceFormulation , ?iterator ) . "\n"
+  } ITERATOR <iterators/mappings.rqg>() AS ?mapping ?source ?source_var ?referenceFormulation ?iterator . 
+  
+}

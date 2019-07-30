@@ -1,0 +1,10 @@
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/> 
+
+TEMPLATE <templates/XPath.rqg>( ?mapping, ?source , ?source_var, ?iterator ) {
+  st:turtle(iter:XPath) "( " ?source_var " , " st:turtle(?iterator) ")"
+  " AS " 
+  <functions/source_var.rqg>("fragment", ?mapping)
+}

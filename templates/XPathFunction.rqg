@@ -1,0 +1,8 @@
+PREFIX fun: <http://w3id.org/sparql-generate/fn/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+TEMPLATE <templates/XPathFunction.rqg>( ?mapping, ?reference ) {
+  st:turtle(fun:XPath) "( " <functions/source_var.rqg>("fragment", ?mapping) ", " st:turtle("/*[1]/{?reference}") ")"
+}

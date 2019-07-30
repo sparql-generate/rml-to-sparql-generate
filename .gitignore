@@ -1,0 +1,7 @@
+*.rqglog
+*.csv
+*.xml
+*.ttl
+*.zip
+output.ttl
+venue.json

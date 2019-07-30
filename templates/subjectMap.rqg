@@ -1,0 +1,33 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rr: <http://www.w3.org/ns/r2rml#>
+PREFIX rml: <http://semweb.mmlab.be/ns/rml#>
+PREFIX ql: <http://semweb.mmlab.be/ns/ql#>
+PREFIX ex: <http://example.com/ns#>
+PREFIX fun: <http://w3id.org/sparql-generate/fn/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+TEMPLATE <templates/subjectMap.rqg>( ?mapping, ?referenceFormulation ) {
+
+  TEMPLATE { 
+    "[ERROR: Violation of R2RML: only one of rr:subjectMap and rr:subject sould be set]" 
+  } 
+  WHERE { FILTER( BOUND(?subjectMap) && BOUND(?subject) ) }.
+
+  # https://www.w3.org/TR/r2rml/ section 6.1
+  TEMPLATE { 
+    st:turtle( ?subject ) 
+  } 
+  WHERE { FILTER( !BOUND(?subjectMap) && BOUND(?subject) ) }.
+
+  # https://www.w3.org/TR/r2rml/ section 6.1
+  TEMPLATE <templates/termMap.rqg>( ?mapping, ?subjectMap , ?referenceFormulation , rr:SubjectMap ) 
+  WHERE { FILTER( BOUND(?subjectMap) && !BOUND(?subject) ) }.
+
+} WHERE {
+  { ?mapping rr:subjectMap ?subjectMap } UNION { ?mapping rr:subject ?subject }
+}

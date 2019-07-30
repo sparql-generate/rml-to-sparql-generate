@@ -1,0 +1,5 @@
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+TEMPLATE <templates/CSVFunction.rqg>( ?mapping, ?reference ) {
+  CONCAT(<functions/source_var.rqg>(REPLACE(  ?reference, "^ *([^ ]*) *$", "$1"), ?mapping), " ")
+}

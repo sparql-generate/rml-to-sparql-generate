@@ -1,0 +1,75 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rr: <http://www.w3.org/ns/r2rml#>
+PREFIX rml: <http://semweb.mmlab.be/ns/rml#>
+PREFIX ql: <http://semweb.mmlab.be/ns/ql#>
+PREFIX ex: <http://example.com/ns#>
+PREFIX fun: <http://w3id.org/sparql-generate/fn/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+TEMPLATE <templates/termMap.rqg>( ?mapping, ?termMap , ?referenceFormulation, ?typeMap) {
+
+  TEMPLATE {
+    "[ERROR: termType should be one of rr:IRI, rr:BlankNode, rr:Literal]"
+  }
+  WHERE { 
+    FILTER( ?termType != rr:IRI && ?termType != rr:BlankNode && ?termType != rr:Literal )
+  } .
+
+  TEMPLATE {
+    st:turtle( ?constant )
+  }
+  WHERE { 
+    ?termMap rr:constant ?constant
+  } .
+
+  TEMPLATE <templates/templateValue.rqg>(?mapping, ?templateString , ?referenceFormulation, ?termType)
+  WHERE { 
+    ?termMap rr:template ?templateString 
+  } .
+  
+  TEMPLATE <templates/referenceValue.rqg>(?mapping, ?reference , ?referenceFormulation, ?termType, ?language, ?datatype )
+  WHERE { 
+    ?termMap rml:reference ?reference 
+  } .
+
+  TEMPLATE {
+    "[ERROR: rr:inverseExpression not implemented yet]"
+  } WHERE {
+    ?termMap rr:inverseExpression ?expression 
+  } .
+  
+  TEMPLATE { 
+    "?\{ IF( true "
+    TEMPLATE { 
+      before= "&& ";
+      TEMPLATE <templates/referenceValue.rqg>(?parentTripleMap, ?parent , ?referenceFormulation2, rr:Expression, ?undef, ?undef ) .
+      " = " 
+      TEMPLATE <templates/referenceValue.rqg>(?mapping, ?child , ?referenceFormulation, rr:Expression, ?undef, ?undef ) .
+      ; separator=" && "
+    }
+    WHERE { ?termMap rr:joinCondition [ rr:parent ?parent ; rr:child ?child ] } .
+    ", "
+    TEMPLATE <templates/subjectMap.rqg>( ?parentTripleMap, ?referenceFormulation2 ) .
+    ", ?undef ) }"
+  } WHERE {
+    ?termMap rr:parentTriplesMap ?parentTripleMap .
+    ?parentTripleMap rml:logicalSource ?logicalSource2 .
+    ?logicalSource2 rml:referenceFormulation ?referenceFormulation2 .
+  } LIMIT 1 .
+  
+} WHERE {
+  # https://www.w3.org/TR/r2rml/#term-map 7.4
+  # ISSUE: does not take into account rr:Literal, if it is an object map and a column-based term map.
+  OPTIONAL {?termMap rr:termType ?termType0 }
+  OPTIONAL {?termMap rr:language ?language }
+  OPTIONAL {?termMap rr:datatype ?datatype }
+  BIND( IF( BOUND(?termType0), 
+          ?termType0, 
+          IF(?typeMap = rr:ObjectMap && (BOUND(?language) || BOUND(?datatype)), rr:Literal, rr:IRI)
+    ) AS ?termType )
+}

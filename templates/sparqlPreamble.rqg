@@ -1,0 +1,8 @@
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+TEMPLATE <templates/sparqlPreamble.rqg>() {
+  "PREFIX " ?prefix ": <" ?namespace ">"
+  ; separator = "\n" 
+  ; after = "\n"
+} ITERATOR iter:defaultGraphNamespaces() AS ?prefix ?namespace

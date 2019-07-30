@@ -1,0 +1,47 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rr: <http://www.w3.org/ns/r2rml#>
+PREFIX rml: <http://semweb.mmlab.be/ns/rml#>
+PREFIX ql: <http://semweb.mmlab.be/ns/ql#>
+PREFIX ex: <http://example.com/ns#>
+PREFIX fun: <http://w3id.org/sparql-generate/fn/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+## ISSUE: check escaped curly brackets
+
+TEMPLATE <templates/referenceValue.rqg>( ?mapping, ?reference0 , ?referenceFormulation, ?termType, ?language, ?datatype) {
+
+  TEMPLATE {
+    "<\{" IF(BOUND(?language), "STRLANG( {?reference} , {st:turtle(?language)} )", IF(BOUND(?datatype), "STRDT( {?reference} , {st:turtle(?datatype)} )", ?reference)) "}>"
+  } WHERE {
+    FILTER( ?termType = rr:IRI )
+  } . 
+
+  TEMPLATE {
+    "?\{" IF(BOUND(?language), "STRLANG( {?reference} , {st:turtle(?language)} )", IF(BOUND(?datatype), "STRDT( {?reference} , {st:turtle(?datatype)} )", ?reference)) "}"
+  } WHERE {
+    FILTER( ?termType = rr:Literal )
+  } . 
+
+  TEMPLATE {
+    "?\{" st:turtle(fun:bnode) "(" ?reference ")}"
+  } WHERE {
+    FILTER( ?termType = rr:BlankNode )
+  } . 
+
+
+  TEMPLATE {
+    IF(BOUND(?language), "STRLANG( {?reference} , {st:turtle(?language)} )", IF(BOUND(?datatype), "STRDT( {?reference} , {st:turtle(?datatype)} )", ?reference))
+  } WHERE {
+    FILTER( ?termType = rr:Expression )
+  } . 
+
+
+} ITERATOR <iterators/referenceFormulation.rqg>(?referenceFormulation) AS ?template ?referenceFunction
+WHERE {
+  BIND( st:call-template(?referenceFunction, ?mapping, ?reference0) AS ?reference )
+}

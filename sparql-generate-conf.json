@@ -1,0 +1,19 @@
+{
+  "base": "http://w3id.org/SPARQL-Generate-RML/",
+  "graph": "mapping.ttl",
+  "log": 4,
+  "debugTemplate": true,
+  "output": "output.ttl",
+  "documentset": [ {
+    "uri": "http://www.example.com/Airport.csv",
+    "path": "airport.csv"
+  },
+  {
+    "uri": "http://www.example.com/Venue.json",
+    "path": "venue.json"
+  },
+  {
+    "uri": "http://www.example.com/Transport.xml",
+    "path": "transport.xml"
+  } ]
+}

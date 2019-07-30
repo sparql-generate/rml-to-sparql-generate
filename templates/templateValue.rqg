@@ -1,0 +1,26 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rr: <http://www.w3.org/ns/r2rml#>
+PREFIX rml: <http://semweb.mmlab.be/ns/rml#>
+PREFIX ql: <http://semweb.mmlab.be/ns/ql#>
+PREFIX ex: <http://example.com/ns#>
+PREFIX fun: <http://w3id.org/sparql-generate/fn/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+PREFIX st: <http://ns.inria.fr/sparql-template/>
+
+BASE <http://w3id.org/SPARQL-Generate-RML/>
+
+## ISSUE: check escaped curly brackets
+
+TEMPLATE <templates/templateValue.rqg>( ?mapping, ?templateString , ?referenceFormulation, ?termType) {
+  before= IF(?termType=rr:IRI, "<", "");
+  ?group1 IF(!BOUND(?group3), "", "\{{ IF(?termType=rr:IRI, "ENCODE_FOR_URI({?value})", ?value) }}")
+  ; after= IF(?termType=rr:IRI, ">", "")
+}
+ITERATOR <iterators/referenceFormulation.rqg>(?referenceFormulation) AS ?template ?referenceFunction
+BIND( REPLACE(?templateString , "\\\\", "\\") AS ?templateString1)
+ITERATOR iter:regex( ?templateString1, "([^\{]*)(\\\{([^}]*)})?", 1, 3) AS ?group1 ?group3
+WHERE {
+  BIND( st:call-template(?referenceFunction, ?mapping, ?group3) AS ?value )
+}

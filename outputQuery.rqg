@@ -1,0 +1,22 @@
+@prefix rml:   <http://semweb.mmlab.be/ns/rml#> .
+@prefix rr:    <http://www.w3.org/ns/r2rml#> .
+@prefix ex:    <http://example.com/ns#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ql:    <http://semweb.mmlab.be/ns/ql#> .
+
+<http://loc.example.com/latlong/%255B%252250.901389%2522%255D,%255B%25224.484444%2522%255D>
+        ex:lat   <http://w3id.org/SPARQL-Generate-RML/%5B%2250.901389%22%5D> ;
+        ex:long  <http://w3id.org/SPARQL-Generate-RML/%5B%224.484444%22%5D> .
+
+<http://loc.example.com/latlong/50.901389,4.484444>
+        ex:lat   <http://w3id.org/SPARQL-Generate-RML/50.901389> ;
+        ex:long  <http://w3id.org/SPARQL-Generate-RML/4.484444> .
+
+<http://airport.example.com/6523>
+        a           ex:Stop ;
+        ex:latlong  <http://loc.example.com/latlong/50.901389,4.484444> .
+
+<http://w3id.org/SPARQL-Generate-RML/s>
+        <http://w3id.org/SPARQL-Generate-RML/p>
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><bus id=\"47\" type=\"DoubleDecker\">\r\n    <route>\r\n      <stop id=\"873\">\r\n        Central Park\r\n      </stop>\r\n      <stop id=\"651\">\r\n        Conference center\r\n      </stop>\r\n    </route>\r\n    <aircondition>\r\n      true\r\n    </aircondition>\r\n  </bus>"^^<http://www.iana.org/assignments/media-types/application/xml> , "<?xml version=\"1.0\" encoding=\"UTF-8\"?><bus id=\"25\" type=\"SingeDecker\">\r\n    <route>\r\n      <stop id=\"645\">\r\n        Airport\r\n      </stop>\r\n      <stop id=\"651\">\r\n        Conference center\r\n      </stop>\r\n    </route>\r\n    <aircondition>\r\n      false\r\n    </aircondition>\r\n  </bus>"^^<http://www.iana.org/assignments/media-types/application/xml> .
