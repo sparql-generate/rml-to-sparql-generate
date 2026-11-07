@@ -4,7 +4,9 @@
 #
 #   ?scope = "tm"      every term map of triples map ?tm, and the subject maps
 #                      of the parents referenced without join condition (they
-#                      are evaluated on the same iteration);
+#                      are evaluated on the same iteration); for a blank node
+#                      subject without expression, also the child keys of its
+#                      joins (made in its iteration);
 #   ?scope = "child"   the child side of the join ?om of predicate-object map
 #                      ?pom: subject map, predicate maps, child keys;
 #   ?scope = "parent"  the parent side: parent subject map, parent keys;
@@ -53,6 +55,14 @@ WHERE {
         })
           ?ptm (rr:subjectMap|rmlc:subjectMap) ?t
         }
+        UNION {
+          # a blank node subject without expression: its joins are made in its
+          # iteration (templates/joinInIteration.rqg), which reads the child keys
+          ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:joinCondition|rmlc:joinCondition)/rmlc:childMap ?t .
+          FILTER(EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap) ?bs .
+                         ?bs (rr:termType|rmlc:termType) ?btt . FILTER(?btt IN (rr:BlankNode, rmlc:BlankNode))
+                         FILTER NOT EXISTS { ?bs (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant) ?bx } })
+        }
       } UNION {
         BIND("child" AS ?scope)
         { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
@@ -71,6 +81,12 @@ WHERE {
     {
       BIND("child" AS ?scope)
       ?om (rr:joinCondition|rmlc:joinCondition)/(rr:child|rmlc:child) ?r
+    } UNION {
+      BIND("tm" AS ?scope)
+      ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:joinCondition|rmlc:joinCondition)/(rr:child|rmlc:child) ?r .
+      FILTER(EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap) ?bs .
+                         ?bs (rr:termType|rmlc:termType) ?btt . FILTER(?btt IN (rr:BlankNode, rmlc:BlankNode))
+                         FILTER NOT EXISTS { ?bs (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant) ?bx } })
     } UNION {
       BIND("parent" AS ?scope)
       ?om (rr:joinCondition|rmlc:joinCondition)/(rr:parent|rmlc:parent) ?r

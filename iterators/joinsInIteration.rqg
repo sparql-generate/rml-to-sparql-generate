@@ -1,0 +1,39 @@
+# The referencing object maps of triples map ?tm that are joined in its
+# iteration (templates/joinInIteration.rqg): those with a join condition,
+# when the subject map of ?tm is a blank node without expression and its
+# source is CSV. ?x names the pair; ?prf is the
+# parent's reference formulation; ?pbase its base IRI (?gbase if none).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+SELECT <iterators/joinsInIteration.rqg>(?tm, ?gbase) DISTINCT ?x ?pom ?pt ?pc ?om ?ptm ?prf ?pbase
+WHERE {
+  ?tm (rr:subjectMap|rmlc:subjectMap) ?bs .
+  ?bs (rr:termType|rmlc:termType) ?btt . FILTER(?btt IN (rr:BlankNode, rmlc:BlankNode))
+  FILTER NOT EXISTS { ?bs (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant) ?bx }
+  ?tm (rml:logicalSource|rmlc:logicalSource) ?ls1 .
+  ?ls1 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
+  FILTER(REPLACE(STR(?rfi), "^.*[#/]", "") = "CSV")
+  ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap) ?pom .
+  ?pom (rr:objectMap|rmlc:objectMap) ?om .
+  ?om (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
+  ?ptm (rml:logicalSource|rmlc:logicalSource) ?ls2 .
+  ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?prfi .
+  BIND(REPLACE(STR(?prfi), "^.*[#/]", "") AS ?prf)
+  FILTER EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?anon1 }
+  { ?pom (rr:predicateMap|rmlc:predicateMap) ?pm0 } UNION { ?pom (rr:predicate|rmlc:predicate) ?pc0 }
+  BIND(COALESCE(?pm0, <urn:x-rml2sg:none>) AS ?pt)
+  BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
+  OPTIONAL { ?ptm rmlc:baseIRI ?pb }
+  BIND(COALESCE(STR(?pb), ?gbase) AS ?pbase)
+  # the triples go to the default graph
+  FILTER(NOT EXISTS { { ?bs (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
+      || EXISTS { { ?bs ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
+                  UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
+                  FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  BIND(MD5(CONCAT(IF(isBlank(?pom), afn:bnode(?pom), STR(?pom)), "|", IF(isBlank(?om), afn:bnode(?om), STR(?om)),
+                  "|", IF(isBlank(?pt), afn:bnode(?pt), STR(?pt)), "|", STR(?pc))) AS ?x)
+}
+ORDER BY ?x

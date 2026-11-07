@@ -1,0 +1,37 @@
+# τ for a referencing object map ?om (with a join condition, or over another
+# logical source) of a triples map whose subject map is a blank node without
+# expression: the join stays in the child's iteration, as in τ (Section 6),
+# because the blank node of a row must be the same in the triples of the
+# child and in the join triples (prop:join-graph, condition (a), does not
+# hold). Nested in the child's sub-query, for each child row:
+#
+#   GENERATE { ?s ?pj_<x> ?jo_<x> . }
+#     ITERATOR <the parent's iteration, columns ?jc_...>
+#     WHERE { <parent subject ?jo_<x>> <parent keys ?jq<h>_<x>>
+#             FILTER(?jq<h>_<x> = ?k<h>_<x>) ... <predicate ?pj_<x>> } .
+#
+# The child keys ?k<h>_<x> are bound in the child's WHERE clause
+# (templates/triplesMap.rqg). Only for a CSV child (no ?it of the child to
+# hide); the cost is the product of the two sources, as in τ.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/joinInIteration.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?ptm, ?prf, ?dialect, ?base, ?pbase, ?x) {
+  "    GENERATE \{ ?s ?pj_" ?x " ?jo_" ?x " . }\n      "
+  TEMPLATE <templates/iteration.rqg>(?ptm, "jparent", ?pom, ?om, ?prf) .
+  "\n      "
+  TEMPLATE <templates/referenceIterators.rqg>(?psm, "", CONCAT("jo_", ?x), ?prf, ?dialect) .
+  TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("jq", ?h, "_", ?x), ?prf, ?dialect) . }
+  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
+  "WHERE \{ "
+  TEMPLATE <templates/termMap.rqg>(?psm, <urn:x-rml2sg:none>, "", CONCAT("jo_", ?x), "subject", ?prf, ?dialect, ?pbase) .
+  TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("jq", ?h, "_", ?x), "key", ?prf, ?dialect, ?pbase) .
+             "FILTER(?jq" ?h "_" ?x " = ?k" ?h "_" ?x ") " }
+  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
+  TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("pj_", ?x), "predicate", "CSV", ?dialect, ?base) .
+  "} .\n"
+}
+WHERE {
+  OPTIONAL { ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm0 }
+  BIND(COALESCE(?psm0, <urn:x-rml2sg:none>) AS ?psm)
+}

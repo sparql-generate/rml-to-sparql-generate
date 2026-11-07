@@ -23,11 +23,11 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
   TEMPLATE {
     "iter:CSV(" ?srcText ", 10000"
     TEMPLATE { ", " ?col }
-    ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r
+    ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r
     WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
     ") AS"
-    TEMPLATE { " ?c_" MD5(?r) }
-    ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r .
+    TEMPLATE { " ?" ?colvar MD5(?r) }
+    ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r .
     # an iterator binds at least one variable: without reference (constant
     # term maps only), the first column, positionally
     TEMPLATE { " ?c_" }
@@ -51,6 +51,10 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
   WHERE { FILTER(?rf = "XPath") } .
 }
 WHERE {
+  # "jparent": the parent iterated inside its child's iteration, its columns
+  # named ?jc_ (templates/joinInIteration.rqg)
+  BIND(IF(?scope = "jparent", "parent", ?scope) AS ?rscope)
+  BIND(IF(?scope = "jparent", "jc_", "c_") AS ?colvar)
   ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
   OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
   OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p }

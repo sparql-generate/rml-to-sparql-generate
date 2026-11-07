@@ -123,6 +123,10 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   TEMPLATE { "    ?s ?p_" ?key " ?o_" ?key " .\n" }
   ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
   WHERE { FILTER(?rf = "CSV") } .
+  # CSV, a blank node subject without expression: its joins in its iteration
+  TEMPLATE { TEMPLATE <templates/joinInIteration.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?ptm, ?prf, ?dialect, ?base, ?pbase, ?x) . }
+  ITERATOR <iterators/joinsInIteration.rqg>(?tm, ?gbase) AS ?x ?pom ?pt ?pc ?om ?ptm ?prf ?pbase
+  WHERE { FILTER(?rf = "CSV") } .
 
   "  }\n  "
   TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
@@ -166,6 +170,11 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
     FILTER(?rf = "CSV")
     BIND(IF(?okind = "subject", IF(?pbiri != "", ?pbiri, ?gbase), ?base) AS ?obase)
   } .
+  # the child keys of the joins made in the iteration
+  TEMPLATE { "\n  " TEMPLATE <templates/termMap.rqg>(?ct, <urn:x-rml2sg:none>, ?cr, CONCAT("k", ?h, "_", ?x), "key", ?rf, ?dialect, ?base) . }
+  ITERATOR <iterators/joinsInIteration.rqg>(?tm, ?gbase) AS ?x ?pom ?pt ?pc ?om ?ptm ?prf ?pbase
+  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr
+  WHERE { FILTER(?rf = "CSV") } .
   TEMPLATE { "\n  }" } WHERE { FILTER(?rf = "CSV") } .
   " .\n"
 }

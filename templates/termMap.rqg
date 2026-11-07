@@ -33,7 +33,9 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
   TEMPLATE { "BIND(" ?lexical " AS ?l_" ?role ") " }
   WHERE {
     FILTER(BOUND(?r))
-    BIND(IF(?rf = "CSV", "?c_", CONCAT("?", ?role, "_")) AS ?prefix)
+    # the columns of a parent iterated inside its child's iteration (roles
+    # j...: templates/joinInIteration.rqg) are ?jc_, apart from the child's ?c_
+    BIND(IF(?rf = "CSV", IF(STRSTARTS(?role, "j"), "?jc_", "?c_"), CONCAT("?", ?role, "_")) AS ?prefix)
     BIND(CONCAT(?prefix, MD5(?r)) AS ?var)
     # RML-Core keeps the natural datatype of the value (JSON numbers, booleans)
     # for a literal without language or datatype; RML 1.x reads strings

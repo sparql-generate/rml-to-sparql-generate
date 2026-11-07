@@ -42,6 +42,16 @@ TEMPLATE {
     ?om (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
     ?tm (rml:logicalSource|rmlc:logicalSource) ?ls1 .
     ?ptm (rml:logicalSource|rmlc:logicalSource) ?ls2 .
+    # not joined in the iteration of the child (a CSV child whose subject is a
+    # blank node without expression: templates/joinInIteration.rqg)
+    FILTER NOT EXISTS {
+      FILTER EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?anon5 }
+      ?tm (rr:subjectMap|rmlc:subjectMap) ?bs .
+      ?bs (rr:termType|rmlc:termType) ?btt . FILTER(?btt IN (rr:BlankNode, rmlc:BlankNode))
+      FILTER NOT EXISTS { ?bs (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant) ?bx }
+      ?ls1 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfb .
+      FILTER(REPLACE(STR(?rfb), "^.*[#/]", "") = "CSV")
+    }
     # with a join condition, or over another logical source
     FILTER(EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?anon1 } || !(?ls1 = ?ls2 || EXISTS {
           # effectively equal logical sources: same source, reference
