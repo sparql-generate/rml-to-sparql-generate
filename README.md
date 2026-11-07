@@ -42,7 +42,7 @@ object map).
 | referencing object map with `rr:joinCondition` (`rml:childMap`/`rml:parentMap` too) | the parent is generated once as a graph (`FROM GENERATE`), the join is a basic graph pattern over it |
 | `rml:baseIRI` (per triples map) | yes |
 | graph maps | GENERATE writes triples: only the triples of the **default graph** are generated |
-| invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, invalid language tag, invalid template, ...) |
+| invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
 triples maps; a SPARQL `BNODE(str)` is fresh for each solution. The generated
@@ -51,7 +51,7 @@ same string during one execution, sub-queries included.
 
 ## Conformance
 
-Measured by kgc-bench on SPARQL-Generate 2.2.0-SNAPSHOT, by RDF dataset isomorphism with
+Measured by kgc-bench on SPARQL-Generate 2.2.2 (release), by RDF dataset isomorphism with
 the expected output of each case (an expected error passes when an error is raised):
 
 | suite | cases | PASS | N/A (graph maps) | FAIL |
@@ -59,13 +59,14 @@ the expected output of each case (an expected error passes when an error is rais
 | RMLio/rml-test-cases@803dd3ec, CSV | 39 | 31 | 6 | 2 |
 | RMLio/rml-test-cases@803dd3ec, JSON | 40 | 32 | 6 | 2 |
 | RMLio/rml-test-cases@803dd3ec, XML | 38 | 30 | 6 | 2 |
-| kg-construct/rml-core@82ab28d4, JSON | 76 | 64 | 7 | 5 |
+| kg-construct/rml-core@82ab28d4, JSON | 76 | 65 | 7 | 4 |
 
 Graph maps need quad templates (`GENERATE { GRAPH ?g { ... } }`), planned for
 SPARQL-Generate 2.3; the default graph of those cases is checked. The failures are
-errors that only the data reveal (an unknown column, file or JSONPath; an invalid IRI),
-which the generated query does not raise, and `rml:UnsafeIRI` values with spaces, which
-Jena's `IRI()` rejects.
+errors that only the data reveal (an unknown column or file, a reference to an array, an
+invalid IRI), which the generated query does not raise, and `rml:UnsafeIRI` values with
+spaces, which the engine rejects as IRIs (Jena's `IRI()`, also behind `<...{?x}>`). A
+missing file is only a warning in 2.2.2; it is an error from the next release on.
 
 ## History
 

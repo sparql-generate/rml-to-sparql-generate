@@ -40,6 +40,21 @@ TEMPLATE <templates/checks.rqg>(?dialect) {
           # balanced, non-nested, non-empty {references}, with \ escapes
           FILTER(!REGEX(?tpl, "^(?:[^\{}\\\\]|\\\\.)*(?:\\\{(?:[^\{}\\\\]|\\\\.)+}(?:[^\{}\\\\]|\\\\.)*)*$")) } .
 
+  TEMPLATE { "#ERROR: invalid JSONPath \"" ?path "\"\n" }
+  WHERE { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
+          ?ls (rml:referenceFormulation|rmlc:referenceFormulation) ?rf .
+          FILTER(?rf IN (ql:JSONPath, rmlc:JSONPath))
+          { ?ls (rml:iterator|rmlc:iterator) ?p }
+          UNION
+          { ?tm ((rr:subjectMap|rmlc:subjectMap)|((rr:predicateObjectMap|rmlc:predicateObjectMap)/
+                 (rr:objectMap|rmlc:objectMap|rr:predicateMap|rmlc:predicateMap|rr:graphMap|rmlc:graphMap))) ?t .
+            ?t (rml:reference|rmlc:reference) ?p }
+          BIND(STR(?p) AS ?path)
+          # brackets and parentheses balanced, outside quoted names
+          BIND(REPLACE(?path, "'[^']*'|\"[^\"]*\"", "") AS ?bare)
+          FILTER(STRLEN(REPLACE(?bare, "[^\\[]", "")) != STRLEN(REPLACE(?bare, "[^\\]]", ""))
+              || STRLEN(REPLACE(?bare, "[^(]", "")) != STRLEN(REPLACE(?bare, "[^)]", ""))) } .
+
   TEMPLATE { "#ERROR: unsupported logical source (" ?what ")\n" }
   WHERE { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
           OPTIONAL { ?ls (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi }
