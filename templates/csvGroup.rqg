@@ -29,15 +29,15 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
     FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon1 }
         || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
                     FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
-    BIND(SUBSTR(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))), 1, 10) AS ?t)
+    BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
   # the triples of each pair of term maps
-  TEMPLATE { "    ?s_" ?t " ?p_" ?key " ?o_" ?key " .\n" }
+  TEMPLATE { "    ?s_" ?t " ?p_" ?t "_" ?key " ?o_" ?t "_" ?key " .\n" }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
   WHERE {
     FILTER(?group = ?src)
-    BIND(SUBSTR(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))), 1, 10) AS ?t)
+    BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
 
   "  }\n  ITERATOR iter:CSV(" ?srcText ", 10000"
@@ -45,7 +45,7 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
   ITERATOR <iterators/groupReferences.rqg>(?src, ?base) AS ?r
   WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
   ") AS"
-  TEMPLATE { " ?c_" SUBSTR(MD5(?r), 1, 12) }
+  TEMPLATE { " ?c_" MD5(?r) }
   ITERATOR <iterators/groupReferences.rqg>(?src, ?base) AS ?r .
 
   "\n  WHERE \{"
@@ -60,16 +60,21 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
     OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc1 }
     BIND(COALESCE(?sm1, <urn:x-rml2sg:none>) AS ?st)
     BIND(COALESCE(?sc1, <urn:x-rml2sg:none>) AS ?sc)
-    BIND(SUBSTR(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))), 1, 10) AS ?t)
+    BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
   # the terms of each pair of term maps
   TEMPLATE {
-    "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?key), "predicate", "CSV", ?dialect, ?tmbase) .
-    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?key), ?okind, "CSV", ?dialect, ?tmbase) .
+    "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?t, "_", ?key), "predicate", "CSV", ?dialect, ?tmbase) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?t, "_", ?key), ?okind, "CSV", ?dialect, ?obase) .
   }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
-  WHERE { FILTER(?group = ?src) } .
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+  WHERE {
+    FILTER(?group = ?src)
+    BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
+    # the parent's subject is built against the parent's base IRI
+    BIND(IF(?okind = "subject", IF(?pbiri != "", ?pbiri, ?base), ?tmbase) AS ?obase)
+  } .
   "\n  } .\n"
 }
 WHERE {

@@ -28,7 +28,7 @@ TEMPLATE {
 
   # each triples map alone, or (R3 of τ') the triples maps of a shared CSV
   # source in one iteration
-  TEMPLATE { TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase) . }
+  TEMPLATE { TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase, ?base) . }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
   WHERE { FILTER(?group = "") } .
 

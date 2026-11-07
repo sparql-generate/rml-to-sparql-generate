@@ -13,7 +13,7 @@ TEMPLATE <templates/referenceIterator.rqg>(?r, ?role, ?rf, ?dialect) {
   "ITERATOR " ?call " AS " ?vars "\n    "
 }
 WHERE {
-  BIND(SUBSTR(MD5(?r), 1, 12) AS ?h)
+  BIND(MD5(?r) AS ?h)
   BIND(IF(STRSTARTS(?r, "$"), ?r,
        IF(REGEX(?r, "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"), CONCAT("$.", ?r),
           CONCAT("$['", REPLACE(?r, "'", "\\\\'"), "']"))) AS ?jsonPath)

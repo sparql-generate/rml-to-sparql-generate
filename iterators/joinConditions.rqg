@@ -20,6 +20,6 @@ WHERE {
   BIND(COALESCE(STR(?cr0), "") AS ?cr)
   BIND(COALESCE(?pt0, <urn:x-rml2sg:none>) AS ?pt)
   BIND(COALESCE(STR(?pr0), "") AS ?pr)
-  BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?cr0, ?cv, "")), "|", STR(COALESCE(?pr0, ?pv, "")))), 1, 8) AS ?h)
+  BIND(MD5(CONCAT(STR(COALESCE(?cr0, ?cv, "")), "|", STR(COALESCE(?pr0, ?pv, "")))) AS ?h)
 }
 ORDER BY ?h

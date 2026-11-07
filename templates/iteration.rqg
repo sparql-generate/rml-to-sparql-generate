@@ -26,7 +26,7 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
     ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r
     WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
     ") AS"
-    TEMPLATE { " ?c_" SUBSTR(MD5(?r), 1, 12) }
+    TEMPLATE { " ?c_" MD5(?r) }
     ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r .
     # an iterator binds at least one variable: without reference (constant
     # term maps only), the first column, positionally

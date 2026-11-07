@@ -20,7 +20,7 @@ PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
 PREFIX afn:  <http://jena.apache.org/ARQ/function#>
 
-TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
+TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   "\n  # triples map " ?tmText "\n  GENERATE \{\n"
 
   # classes: (s, rdf:type, c)
@@ -56,7 +56,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base)
     WHERE { FILTER(?rf != "CSV") } .
     TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
-    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", "o", ?okind, ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", "o", ?okind, ?rf, ?dialect, ?obase) .
     "} .\n"
   }
   WHERE {
@@ -99,6 +99,10 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
         })
       }))
     BIND(IF(BOUND(?ptm), ?psm, COALESCE(?om0, <urn:x-rml2sg:none>)) AS ?ot)
+    # the parent's subject is built against the parent's base IRI
+    BIND(COALESCE(?ptm, <urn:x-rml2sg:none>) AS ?ptmx)
+    OPTIONAL { ?ptmx rmlc:baseIRI ?pb0 }
+    BIND(IF(BOUND(?ptm), COALESCE(STR(?pb0), ?gbase), ?base) AS ?obase)
     BIND(IF(BOUND(?ptm), "subject", "object") AS ?okind)
     # the triples go to the default graph
     FILTER(NOT EXISTS { { ?st (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
@@ -117,7 +121,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
                     FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
   } .
   TEMPLATE { "    ?s ?p_" ?key " ?o_" ?key " .\n" }
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
   WHERE { FILTER(?rf = "CSV") } .
 
   "  }\n  "
@@ -155,10 +159,13 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
   # CSV: the terms of the predicate-object maps, once per row
   TEMPLATE {
     "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?key), "predicate", ?rf, ?dialect, ?base) .
-    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?key), ?okind, ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?key), ?okind, ?rf, ?dialect, ?obase) .
   }
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
-  WHERE { FILTER(?rf = "CSV") } .
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+  WHERE {
+    FILTER(?rf = "CSV")
+    BIND(IF(?okind = "subject", IF(?pbiri != "", ?pbiri, ?gbase), ?base) AS ?obase)
+  } .
   TEMPLATE { "\n  }" } WHERE { FILTER(?rf = "CSV") } .
   " .\n"
 }

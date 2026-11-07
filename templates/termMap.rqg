@@ -34,7 +34,7 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
   WHERE {
     FILTER(BOUND(?r))
     BIND(IF(?rf = "CSV", "?c_", CONCAT("?", ?role, "_")) AS ?prefix)
-    BIND(CONCAT(?prefix, SUBSTR(MD5(?r), 1, 12)) AS ?var)
+    BIND(CONCAT(?prefix, MD5(?r)) AS ?var)
     # RML-Core keeps the natural datatype of the value (JSON numbers, booleans)
     # for a literal without language or datatype; RML 1.x reads strings
     BIND(IF(?dialect = "rmlc" && ?tt = "Literal" && !BOUND(?lang) && !BOUND(?lm)

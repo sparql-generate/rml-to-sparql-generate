@@ -17,7 +17,7 @@ TEMPLATE <templates/text.rqg>(?tpl, ?enc, ?role, ?rf) {
     BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?lit, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\n", "\\\\n"), "\r", "\\\\r"), "\\\{", "\\\\\{"), "\"") AS ?litText)
     # unbound for the last segment, which has no reference
     BIND(IF(STRLEN(?g) > 0, REPLACE(SUBSTR(?g, 2, STRLEN(?g) - 2), "\\\\(.)", "$1"), ?none) AS ?ref)
-    BIND(CONCAT("STR(", IF(?rf = "CSV", "?c_", CONCAT("?", ?role, "_")), SUBSTR(MD5(?ref), 1, 12), ")") AS ?value)
+    BIND(CONCAT("STR(", IF(?rf = "CSV", "?c_", CONCAT("?", ?role, "_")), MD5(?ref), ")") AS ?value)
     BIND(IF(?enc = "iri", REPLACE(?irisafe, "§", ?value),
          IF(?enc = "uri", CONCAT("ENCODE_FOR_URI(", ?value, ")"), ?value)) AS ?refText)
     BIND(CONCAT(IF(STRLEN(?lit) > 0, ?litText, ""),
