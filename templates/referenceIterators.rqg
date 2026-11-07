@@ -1,0 +1,18 @@
+# C_t: for a JSONPath or XPath logical source, one ITERATOR clause per
+# distinct reference of term map ?t (or for the single reference ?ref when ?t
+# is <urn:x-rml2sg:none>), over the current iteration ?it: a reference with
+# several values yields several solutions (RML-Core: one term per value), and
+# a reference without value yields none. CSV references need no iterator: the
+# row is the iteration (templates/iteration.rqg).
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/referenceIterators.rqg>(?t, ?ref, ?role, ?rf, ?dialect) {
+
+  TEMPLATE { TEMPLATE <templates/referenceIterator.rqg>(?r, ?role, ?rf, ?dialect) . }
+  ITERATOR <iterators/references.rqg>("term", ?t, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+  WHERE { FILTER(?ref = "") } .
+
+  TEMPLATE <templates/referenceIterator.rqg>(?ref, ?role, ?rf, ?dialect)
+  WHERE { FILTER(?ref != "") } .
+}
+WHERE { FILTER(?rf != "CSV") }

@@ -1,0 +1,108 @@
+# τ(m): one sub-query per triples map ?tm, which iterates over its logical
+# source once; nested in it, one sub-query for the classes and one per
+# (predicate-object map, predicate map, object map), evaluated once per
+# iteration (rml-translation.md, Sections 3 and 6). Referencing object maps
+# with a join, or over another logical source, are translated apart, at the
+# top level (templates/join.rqg), so that the parent is read once.
+#
+# GENERATE writes triples to the default graph only: a predicate-object map
+# is translated when its triples go to the default graph, that is when
+# neither it nor the subject map has a graph map, or when one of them is
+# rr:defaultGraph (rml-translation.md, Section 7).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
+  "\n  # triples map " ?tmText "\n  GENERATE \{\n"
+
+  # classes: (s, rdf:type, c)
+  TEMPLATE {
+    "    GENERATE \{"
+    TEMPLATE { " ?s a <" STR(?class) "> ." }
+    WHERE { ?sm (rr:class|rmlc:class) ?class } .
+    " }\n    "
+    TEMPLATE <templates/referenceIterators.rqg>(?sm, "", "s", ?rf, ?dialect) .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?sm, <urn:x-rml2sg:none>, "", "s", "subject", ?rf, ?dialect, ?base) .
+    "} .\n"
+  }
+  WHERE {
+    ?tm (rr:subjectMap|rmlc:subjectMap) ?sm .
+    FILTER EXISTS { ?sm (rr:class|rmlc:class) ?anon1 }
+    FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon2 }
+        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
+                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  } .
+
+  # predicate-object maps: (s, p, o)
+  TEMPLATE {
+    "    GENERATE \{ ?s ?p ?o . }\n    "
+    TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?ot, "", "o", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?olm, "", "olang", ?rf, ?dialect) WHERE { ?ot rmlc:languageMap ?olm } .
+    TEMPLATE <templates/referenceIterators.rqg>(?odm, "", "odt", ?rf, ?dialect) WHERE { ?ot rmlc:datatypeMap ?odm } .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", "o", ?okind, ?rf, ?dialect, ?base) .
+    "} .\n"
+  }
+  WHERE {
+    OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm0 }
+    OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc0 }
+    BIND(COALESCE(?sm0, <urn:x-rml2sg:none>) AS ?st)
+    BIND(COALESCE(?sc0, <urn:x-rml2sg:none>) AS ?sc)
+    ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap) ?pom .
+    { ?pom (rr:predicateMap|rmlc:predicateMap) ?pm0 } UNION { ?pom (rr:predicate|rmlc:predicate) ?pc0 }
+    { ?pom (rr:objectMap|rmlc:objectMap) ?om0 } UNION { ?pom (rr:object|rmlc:object) ?oc0 }
+    BIND(COALESCE(?pm0, <urn:x-rml2sg:none>) AS ?pt)
+    BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
+    BIND(COALESCE(?oc0, <urn:x-rml2sg:none>) AS ?oc)
+    # (nested OPTIONALs: an OPTIONAL on an unbound ?ptm would match any map)
+    OPTIONAL { ?om0 (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
+               OPTIONAL { ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm } }
+    # a referencing object map is translated here only without join, on the
+    # same logical source: the object is then the parent's subject, on the
+    # same iteration
+    FILTER(!BOUND(?ptm) || (
+      NOT EXISTS { ?om0 (rr:joinCondition|rmlc:joinCondition) ?anon3 } && EXISTS {
+        ?tm (rml:logicalSource|rmlc:logicalSource) ?ls1 .
+        ?ptm (rml:logicalSource|rmlc:logicalSource) ?ls2 .
+        FILTER(?ls1 = ?ls2 || EXISTS {
+          ?ls1 (rml:source|rmlc:source) ?src ; (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
+          ?ls2 (rml:source|rmlc:source) ?src ; (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
+          FILTER NOT EXISTS { ?ls1 (rml:iterator|rmlc:iterator) ?i1 . FILTER NOT EXISTS { ?ls2 (rml:iterator|rmlc:iterator) ?i1 } }
+          FILTER NOT EXISTS { ?ls2 (rml:iterator|rmlc:iterator) ?i2 . FILTER NOT EXISTS { ?ls1 (rml:iterator|rmlc:iterator) ?i2 } }
+        })
+      }))
+    BIND(IF(BOUND(?ptm), ?psm, COALESCE(?om0, <urn:x-rml2sg:none>)) AS ?ot)
+    BIND(IF(BOUND(?ptm), "subject", "object") AS ?okind)
+    # the triples go to the default graph
+    FILTER(NOT EXISTS { { ?st (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
+        || EXISTS { { ?st ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
+                    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
+                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  } .
+
+  "  }\n  "
+  TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
+
+  # one blank node per iteration for a blank node map without expression
+  # (rml-translation.md, bn(m, i)): ?bn_s for the subject map, ?bn_o for the
+  # object maps
+  TEMPLATE { "\n  BIND(BNODE() AS ?bn_" ?role ")" }
+  WHERE {
+    { ?tm (rr:subjectMap|rmlc:subjectMap) ?t BIND("s" AS ?role) }
+    UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?t BIND("o" AS ?role) }
+    ?t (rr:termType|rmlc:termType) ?tt .
+    FILTER(?tt IN (rr:BlankNode, rmlc:BlankNode))
+    FILTER NOT EXISTS { ?t (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 }
+  } GROUP BY ?role .
+  " .\n"
+}
+WHERE {
+  BIND(IF(isIRI(?tm), CONCAT("<", STR(?tm), ">"), "[]") AS ?tmText)
+}

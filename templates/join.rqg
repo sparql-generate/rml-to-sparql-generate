@@ -1,0 +1,92 @@
+# τ for a referencing object map ?om of predicate-object map ?pom of triples
+# map ?tm, with a join condition or over another logical source than its
+# parent. Two passes, at the top level of the generated query:
+#
+#   GENERATE { ?s ?p ?o . }
+#   FROM GENERATE { _:r <urn:x-rml2sg:subject> ?o . _:r <urn:x-rml2sg:key_h> ?q_h . }
+#        <iteration over the parent> WHERE { BIND(<parent subject> AS ?o) ... } .
+#   <iteration over the child>
+#   WHERE { BIND(<child key> AS ?k_h) ...
+#           ?r <urn:x-rml2sg:subject> ?o ; <urn:x-rml2sg:key_h> ?k_h_ .
+#           BIND(<subject> AS ?s) BIND(<predicate> AS ?p) }
+#
+# The parent iterations are first generated as a graph (one node per
+# iteration and key value, with its subject and its keys), then the join is a
+# basic graph pattern over that graph: an index lookup per child iteration,
+# where the nested iteration of rml-translation.md (Section 6) re-reads the
+# parent source for each child iteration. A missing child value is replaced
+# by <urn:x-rml2sg:null>, which no key equals (an unbound variable would
+# match every key). Keys are compared as strings; a join condition is named
+# by the hash of its child and parent expressions.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?base, ?pbase) {
+  "\n  # " ?tmText " → " ?ptmText "\n"
+  "  GENERATE \{ ?s ?p ?o . }\n"
+  "  FROM GENERATE \{ _:r <urn:x-rml2sg:subject> ?o ."
+  TEMPLATE { " _:r <urn:x-rml2sg:key_" ?h "> ?q" ?h " ." } WHERE { ?om (rr:joinCondition|rmlc:joinCondition) ?jc . OPTIONAL { ?jc (rr:child|rmlc:child) ?hc1 } OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hc2 }
+          OPTIONAL { ?jc (rr:parent|rmlc:parent) ?hp1 } OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hp2 }
+          BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?hc1, ?hc2, "")), "|", STR(COALESCE(?hp1, ?hp2, "")))), 1, 8) AS ?h) } .
+  " }\n    "
+  TEMPLATE <templates/iteration.rqg>(?ptm, "parent", ?pom, ?om, ?prf) .
+  "\n    "
+  TEMPLATE <templates/referenceIterators.rqg>(?psm, "", "o", ?prf, ?dialect) .
+  TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("q", ?h), ?prf, ?dialect)
+  WHERE { ?om (rr:joinCondition|rmlc:joinCondition) ?jc . OPTIONAL { ?jc (rr:child|rmlc:child) ?hc1 } OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hc2 }
+          OPTIONAL { ?jc (rr:parent|rmlc:parent) ?hp1 } OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hp2 }
+          BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?hc1, ?hc2, "")), "|", STR(COALESCE(?hp1, ?hp2, "")))), 1, 8) AS ?h)
+          OPTIONAL { ?jc rmlc:parentMap ?jt0 } OPTIONAL { ?jc (rr:parent|rmlc:parent) ?jr0 }
+          BIND(COALESCE(?jt0, <urn:x-rml2sg:none>) AS ?jt) BIND(COALESCE(STR(?jr0), "") AS ?jr) } .
+  "WHERE \{ "
+  TEMPLATE <templates/termMap.rqg>(?psm, <urn:x-rml2sg:none>, "", "o", "subject", ?prf, ?dialect, ?pbase) .
+  TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("q", ?h), "key", ?prf, ?dialect, ?pbase)
+  WHERE { ?om (rr:joinCondition|rmlc:joinCondition) ?jc . OPTIONAL { ?jc (rr:child|rmlc:child) ?hc1 } OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hc2 }
+          OPTIONAL { ?jc (rr:parent|rmlc:parent) ?hp1 } OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hp2 }
+          BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?hc1, ?hc2, "")), "|", STR(COALESCE(?hp1, ?hp2, "")))), 1, 8) AS ?h)
+          OPTIONAL { ?jc rmlc:parentMap ?jt0 } OPTIONAL { ?jc (rr:parent|rmlc:parent) ?jr0 }
+          BIND(COALESCE(?jt0, <urn:x-rml2sg:none>) AS ?jt) BIND(COALESCE(STR(?jr0), "") AS ?jr) } .
+  "} .\n  "
+
+  TEMPLATE <templates/iteration.rqg>(?tm, "child", ?pom, ?om, ?rf) .
+  "\n  "
+  TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
+  TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) .
+  TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("k", ?h), ?rf, ?dialect)
+  WHERE { ?om (rr:joinCondition|rmlc:joinCondition) ?jc . OPTIONAL { ?jc (rr:child|rmlc:child) ?hc1 } OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hc2 }
+          OPTIONAL { ?jc (rr:parent|rmlc:parent) ?hp1 } OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hp2 }
+          BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?hc1, ?hc2, "")), "|", STR(COALESCE(?hp1, ?hp2, "")))), 1, 8) AS ?h)
+          OPTIONAL { ?jc rmlc:childMap ?jt0 } OPTIONAL { ?jc (rr:child|rmlc:child) ?jr0 }
+          BIND(COALESCE(?jt0, <urn:x-rml2sg:none>) AS ?jt) BIND(COALESCE(STR(?jr0), "") AS ?jr) } .
+  "\n  WHERE \{\n    "
+  TEMPLATE {
+    TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("k", ?h), "key", ?rf, ?dialect, ?base) .
+    "BIND(COALESCE(?k" ?h ", <urn:x-rml2sg:null>) AS ?k" ?h "_) "
+  }
+  WHERE { ?om (rr:joinCondition|rmlc:joinCondition) ?jc . OPTIONAL { ?jc (rr:child|rmlc:child) ?hc1 } OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hc2 }
+          OPTIONAL { ?jc (rr:parent|rmlc:parent) ?hp1 } OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hp2 }
+          BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?hc1, ?hc2, "")), "|", STR(COALESCE(?hp1, ?hp2, "")))), 1, 8) AS ?h)
+          OPTIONAL { ?jc rmlc:childMap ?jt0 } OPTIONAL { ?jc (rr:child|rmlc:child) ?jr0 }
+          BIND(COALESCE(?jt0, <urn:x-rml2sg:none>) AS ?jt) BIND(COALESCE(STR(?jr0), "") AS ?jr) } .
+  "\n    ?r <urn:x-rml2sg:subject> ?o"
+  TEMPLATE { " ; <urn:x-rml2sg:key_" ?h "> ?k" ?h "_" } WHERE { ?om (rr:joinCondition|rmlc:joinCondition) ?jc . OPTIONAL { ?jc (rr:child|rmlc:child) ?hc1 } OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hc2 }
+          OPTIONAL { ?jc (rr:parent|rmlc:parent) ?hp1 } OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?hp2 }
+          BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?hc1, ?hc2, "")), "|", STR(COALESCE(?hp1, ?hp2, "")))), 1, 8) AS ?h) } .
+  " .\n    "
+  TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+  TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
+  "\n  } .\n"
+}
+WHERE {
+  ?om (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
+  OPTIONAL { ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm0 }
+  BIND(COALESCE(?psm0, <urn:x-rml2sg:none>) AS ?psm)
+  OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm0 }
+  OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc0 }
+  BIND(COALESCE(?sm0, <urn:x-rml2sg:none>) AS ?st)
+  BIND(COALESCE(?sc0, <urn:x-rml2sg:none>) AS ?sc)
+  BIND(IF(isIRI(?tm), CONCAT("<", STR(?tm), ">"), "[]") AS ?tmText)
+  BIND(IF(isIRI(?ptm), CONCAT("<", STR(?ptm), ">"), "[]") AS ?ptmText)
+}

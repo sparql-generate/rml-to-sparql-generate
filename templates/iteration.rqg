@@ -1,0 +1,61 @@
+# The iteration over the logical source of triples map ?tm:
+#
+#   CSV       ITERATOR iter:CSV(<file>, "r1", ..., "rn") AS ?c_<md5(r1)> ...
+#             one solution per row, binding the columns used by the term maps
+#             of ?scope (see iterators/pieces.rqg); an empty cell is unbound;
+#   JSONPath  ITERATOR iter:JSONPath(<file>, "<iterator>") AS ?it
+#   XPath     ITERATOR iter:XPath(<file>, "<iterator>") AS ?it
+#
+# The file is named by an IRI: relative paths are resolved against the BASE of
+# the generated query, which the command line maps to the working directory
+# (-b); absolute paths become file: IRIs.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
+  "ITERATOR "
+
+  TEMPLATE {
+    "iter:CSV(" ?srcText
+    TEMPLATE { ", " ?col }
+    ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r
+    WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
+    ") AS"
+    TEMPLATE { " ?c_" SUBSTR(MD5(?r), 1, 12) }
+    ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r .
+    # an iterator binds at least one variable: without reference (constant
+    # term maps only), the first column, positionally
+    TEMPLATE { " ?c_" }
+    WHERE {
+      FILTER(?scope = "tm")
+      FILTER NOT EXISTS {
+        { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
+        UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
+        UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap) ?t }
+        UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rmlc:languageMap|rmlc:datatypeMap) ?t }
+        UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:parentTriplesMap|rmlc:parentTriplesMap)/(rr:subjectMap|rmlc:subjectMap) ?t }
+        ?t (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?x
+      }
+    } .
+  } WHERE { FILTER(?rf = "CSV") } .
+
+  TEMPLATE { "iter:JSONPath(" ?srcText ", " ?itText ") AS ?it" }
+  WHERE { FILTER(?rf = "JSONPath") } .
+
+  TEMPLATE { "iter:XPath(" ?srcText ", " ?itText ") AS ?it" }
+  WHERE { FILTER(?rf = "XPath") } .
+}
+WHERE {
+  ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
+  OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
+  OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p }
+  BIND(COALESCE(STR(?p), STR(?src)) AS ?path)
+  BIND(IF(REGEX(?path, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?path,
+       IF(STRSTARTS(?path, "/"), CONCAT("file://", ?path), ?path)) AS ?iri)
+  BIND(CONCAT("<", REPLACE(?iri, " ", "%20"), ">") AS ?srcText)
+  OPTIONAL { ?ls (rml:iterator|rmlc:iterator) ?iterator0 }
+  BIND(COALESCE(STR(?iterator0), IF(?rf = "JSONPath", "$", "/*")) AS ?iterator)
+  BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?iterator, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?itText)
+}

@@ -1,0 +1,52 @@
+# Static checks of the mapping: each violation is written as a line
+# "#ERROR: <message>" at the top of the generated query, so that a caller can
+# reject an invalid mapping (the query itself stays syntactically valid).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX ql:   <http://semweb.mmlab.be/ns/ql#>
+
+TEMPLATE <templates/checks.rqg>(?dialect) {
+
+  TEMPLATE { "#ERROR: triples map " ?tmText " has no subject map\n" }
+  WHERE { ?tm (rml:logicalSource|rmlc:logicalSource) ?anon1 .
+          FILTER NOT EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?anon2 }
+          BIND(IF(isIRI(?tm), STR(?tm), "[]") AS ?tmText) } .
+
+  TEMPLATE { "#ERROR: triples map " ?tmText " has several subject maps\n" }
+  WHERE { ?tm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?a, ?b . FILTER(?a != ?b)
+          BIND(IF(isIRI(?tm), STR(?tm), "[]") AS ?tmText) } LIMIT 1 .
+
+  TEMPLATE { "#ERROR: a subject map has term type Literal\n" }
+  WHERE { ?anon3 (rr:subjectMap|rmlc:subjectMap)/(rr:termType|rmlc:termType) ?tt . FILTER(?tt IN (rr:Literal, rmlc:Literal)) } LIMIT 1 .
+
+  TEMPLATE { "#ERROR: a predicate map or graph map does not generate IRIs\n" }
+  WHERE { ?anon4 (rr:predicateMap|rmlc:predicateMap|rr:graphMap|rmlc:graphMap)/(rr:termType|rmlc:termType) ?tt .
+          FILTER(?tt IN (rr:Literal, rmlc:Literal, rr:BlankNode, rmlc:BlankNode)) } LIMIT 1 .
+
+  TEMPLATE { "#ERROR: invalid language tag \"" ?lang "\"\n" }
+  WHERE { ?anon5 (rr:language|rmlc:language) ?l . BIND(STR(?l) AS ?lang)
+          # BCP 47: a primary language subtag of 2 or 3 letters, then subtags
+          FILTER(!REGEX(?lang, "^[A-Za-z]\{2,3}(-[A-Za-z0-9]\{1,8})*$")) } .
+
+  TEMPLATE { "#ERROR: a constant-valued term map has an incompatible term type\n" }
+  WHERE { ?t (rr:constant|rmlc:constant) ?c ; (rr:termType|rmlc:termType) ?tt .
+          FILTER((isIRI(?c) && !(?tt IN (rr:IRI, rmlc:IRI, rmlc:URI, rmlc:UnsafeIRI)))
+              || (isLiteral(?c) && !(?tt IN (rr:Literal, rmlc:Literal))))
+  } LIMIT 1 .
+
+  TEMPLATE { "#ERROR: invalid template \"" ?tpl "\"\n" }
+  WHERE { ?anon6 (rr:template|rmlc:template) ?t . BIND(STR(?t) AS ?tpl)
+          # balanced, non-nested, non-empty {references}, with \ escapes
+          FILTER(!REGEX(?tpl, "^(?:[^\{}\\\\]|\\\\.)*(?:\\\{(?:[^\{}\\\\]|\\\\.)+}(?:[^\{}\\\\]|\\\\.)*)*$")) } .
+
+  TEMPLATE { "#ERROR: unsupported logical source (" ?what ")\n" }
+  WHERE { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
+          OPTIONAL { ?ls (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi }
+          BIND(COALESCE(REPLACE(STR(?rfi), "^.*[#/]", ""), "no reference formulation") AS ?what)
+          FILTER(!(?what IN ("CSV", "JSONPath", "XPath"))) } .
+
+  TEMPLATE { "#ERROR: logical table (R2RML) instead of a logical source\n" }
+  WHERE { ?anon7 rr:logicalTable ?anon8 } LIMIT 1 .
+}
+WHERE { }

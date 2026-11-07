@@ -1,0 +1,30 @@
+# The iterator clause of one reference ?r in role ?role (JSONPath, XPath).
+#
+# JSONPath: RML 1.x references are member names ("Name", "Country Code"),
+# RML-Core references are JSONPath expressions relative to the iteration
+# ("$.Name"). The auxiliary query "$" returns the value with its natural
+# datatype (number, boolean, string).
+# XPath: the iteration ?it is the serialised element, re-parsed by the
+# iterator, so a relative path r becomes "/*/r"; a path to an element reads
+# its text.
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/referenceIterator.rqg>(?r, ?role, ?rf, ?dialect) {
+  "ITERATOR " ?call " AS " ?vars "\n    "
+}
+WHERE {
+  BIND(SUBSTR(MD5(?r), 1, 12) AS ?h)
+  BIND(IF(STRSTARTS(?r, "$"), ?r,
+       IF(REGEX(?r, "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"), CONCAT("$.", ?r),
+          CONCAT("$['", REPLACE(?r, "'", "\\\\'"), "']"))) AS ?jsonPath)
+  BIND(IF(STRSTARTS(?r, "/"), ?r, CONCAT("/*/", ?r)) AS ?xpath0)
+  BIND(IF(REGEX(?xpath0, "(@[^/]*|\\)|text\\(\\))$"), ?xpath0, CONCAT(?xpath0, "/text()")) AS ?xpath)
+  BIND(IF(?rf = "JSONPath", ?jsonPath, ?xpath) AS ?path)
+  BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?path, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?pathText)
+  BIND(IF(?rf = "JSONPath",
+          CONCAT("iter:JSONPath(?it, ", ?pathText, ", \"$\")"),
+          CONCAT("iter:XPath(?it, ", ?pathText, ")")) AS ?call)
+  BIND(IF(?rf = "JSONPath",
+          CONCAT("?", ?role, "_raw", ?h, " ?", ?role, "_", ?h),
+          CONCAT("?", ?role, "_", ?h)) AS ?vars)
+}

@@ -1,75 +1,109 @@
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX rr: <http://www.w3.org/ns/r2rml#>
-PREFIX rml: <http://semweb.mmlab.be/ns/rml#>
-PREFIX ql: <http://semweb.mmlab.be/ns/ql#>
-PREFIX ex: <http://example.com/ns#>
-PREFIX fun: <http://w3id.org/sparql-generate/fn/>
-PREFIX iter: <http://w3id.org/sparql-generate/iter/>
-PREFIX st: <http://ns.inria.fr/sparql-template/>
+# E_t: the BIND clauses that bind ?<role> to the RDF term of a term map, in
+# the WHERE clause of a generated sub-query.
+#
+#   ?t      the term map (a node of the mapping), or <urn:x-rml2sg:none>
+#   ?const  a constant given by a shortcut (rr:subject, rr:predicate, ...), or
+#           <urn:x-rml2sg:none>
+#   ?ref    a reference given as a string (rr:child, rr:parent), or ""
+#   ?role   the variable bound: s, p, o, k<n> (join key), ...
+#   ?kind   "subject" | "predicate" | "object" | "graph" | "key" | "language"
+#           | "datatype": gives the default term type, and for "key" and
+#           "language" a plain string is wanted, not a term
+#   ?rf     "CSV" | "JSONPath" | "XPath"; ?dialect "rml" (RML 1.x, rr:/rml:)
+#           or "rmlc" (RML-Core, http://w3id.org/rml/); ?base the base IRI
+#
+# A reference r is read from the variable ?c_<md5(r)> (CSV, bound by the
+# iteration over the rows) or ?<role>_<md5(r)> (JSONPath, XPath: bound by the
+# iterators of templates/referenceIterators.rqg). The lexical form is bound
+# first to ?l_<role>, then the term. A term that cannot be built (invalid
+# IRI, missing value) leaves ?<role> unbound, and the triple is not generated.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
 
-BASE <http://w3id.org/SPARQL-Generate-RML/>
+TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, ?base) {
 
-TEMPLATE <templates/termMap.rqg>( ?mapping, ?termMap , ?referenceFormulation, ?typeMap) {
+  # constant-valued
+  TEMPLATE { "BIND(" ?constText " AS ?" ?role ") " }
+  WHERE { FILTER(BOUND(?c)) } .
 
-  TEMPLATE {
-    "[ERROR: termType should be one of rr:IRI, rr:BlankNode, rr:Literal]"
-  }
-  WHERE { 
-    FILTER( ?termType != rr:IRI && ?termType != rr:BlankNode && ?termType != rr:Literal )
+  # lexical form of a reference-valued term map
+  TEMPLATE { "BIND(" ?lexical " AS ?l_" ?role ") " }
+  WHERE {
+    FILTER(BOUND(?r))
+    BIND(IF(?rf = "CSV", "?c_", CONCAT("?", ?role, "_")) AS ?prefix)
+    BIND(CONCAT(?prefix, SUBSTR(MD5(?r), 1, 12)) AS ?var)
+    # RML-Core keeps the natural datatype of the value (JSON numbers, booleans)
+    # for a literal without language or datatype; RML 1.x reads strings
+    BIND(IF(?dialect = "rmlc" && ?tt = "Literal" && !BOUND(?lang) && !BOUND(?lm)
+            && !BOUND(?dt) && !BOUND(?dm) && ?kind = "object",
+            ?var, CONCAT("STR(", ?var, ")")) AS ?lexical)
   } .
 
-  TEMPLATE {
-    st:turtle( ?constant )
-  }
-  WHERE { 
-    ?termMap rr:constant ?constant
+  # lexical form of a template-valued term map
+  TEMPLATE { "BIND(" TEMPLATE <templates/text.rqg>(?tpl, ?enc, ?role, ?rf) . " AS ?l_" ?role ") " }
+  WHERE {
+    FILTER(BOUND(?tpl) && !BOUND(?c))
+    BIND(IF(?tt = "IRI", "iri", IF(?tt = "URI", "uri", "none")) AS ?enc)
   } .
 
-  TEMPLATE <templates/templateValue.rqg>(?mapping, ?templateString , ?referenceFormulation, ?termType)
-  WHERE { 
-    ?termMap rr:template ?templateString 
-  } .
-  
-  TEMPLATE <templates/referenceValue.rqg>(?mapping, ?reference , ?referenceFormulation, ?termType, ?language, ?datatype )
-  WHERE { 
-    ?termMap rml:reference ?reference 
+  # language and datatype maps (RML-Core): their own terms, bound first
+  TEMPLATE <templates/termMap.rqg>(?lm, <urn:x-rml2sg:none>, "", CONCAT(?role, "lang"), "language", ?rf, ?dialect, ?base)
+  WHERE { FILTER(BOUND(?lm)) } .
+  TEMPLATE <templates/termMap.rqg>(?dm, <urn:x-rml2sg:none>, "", CONCAT(?role, "dt"), "datatype", ?rf, ?dialect, ?base)
+  WHERE { FILTER(BOUND(?dm)) } .
+
+  # the term, from the lexical form
+  TEMPLATE { "BIND(" ?term " AS ?" ?role ") " }
+  WHERE {
+    FILTER(!BOUND(?c) && (BOUND(?r) || BOUND(?tpl)))
+    BIND(CONCAT("?l_", ?role) AS ?l)
+    BIND(CONCAT("STR(", ?l, ")") AS ?sl)
+    BIND(CONCAT("\"", REPLACE(REPLACE(?base, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\"") AS ?baseText)
+    BIND(
+      IF(?kind = "key" || ?kind = "language", ?sl,
+      IF(?tt = "IRI" || ?tt = "URI" || ?tt = "UnsafeIRI",
+         CONCAT("IRI(IF(REGEX(", ?sl, ", \"^[A-Za-z][A-Za-z0-9+.-]*:\"), ", ?sl, ", CONCAT(", ?baseText, ", ", ?sl, ")))"),
+      IF(?tt = "BlankNode",
+         CONCAT("IRI(CONCAT(\"https://w3id.org/sparql-generate/.well-known/genid/\", ENCODE_FOR_URI(", ?sl, ")))"),
+      IF(BOUND(?lang), CONCAT("STRLANG(", ?sl, ", \"", STR(?lang), "\")"),
+      IF(BOUND(?lm), CONCAT("STRLANG(", ?sl, ", ?", ?role, "lang)"),
+      IF(BOUND(?dt), CONCAT("STRDT(", ?sl, ", <", STR(?dt), ">)"),
+      IF(BOUND(?dm), CONCAT("STRDT(", ?sl, ", ?", ?role, "dt)"),
+      ?l))))))) AS ?term)
   } .
 
-  TEMPLATE {
-    "[ERROR: rr:inverseExpression not implemented yet]"
-  } WHERE {
-    ?termMap rr:inverseExpression ?expression 
-  } .
-  
-  TEMPLATE { 
-    "?\{ IF( true "
-    TEMPLATE { 
-      before= "&& ";
-      TEMPLATE <templates/referenceValue.rqg>(?parentTripleMap, ?parent , ?referenceFormulation2, rr:Expression, ?undef, ?undef ) .
-      " = " 
-      TEMPLATE <templates/referenceValue.rqg>(?mapping, ?child , ?referenceFormulation, rr:Expression, ?undef, ?undef ) .
-      ; separator=" && "
-    }
-    WHERE { ?termMap rr:joinCondition [ rr:parent ?parent ; rr:child ?child ] } .
-    ", "
-    TEMPLATE <templates/subjectMap.rqg>( ?parentTripleMap, ?referenceFormulation2 ) .
-    ", ?undef ) }"
-  } WHERE {
-    ?termMap rr:parentTriplesMap ?parentTripleMap .
-    ?parentTripleMap rml:logicalSource ?logicalSource2 .
-    ?logicalSource2 rml:referenceFormulation ?referenceFormulation2 .
-  } LIMIT 1 .
-  
-} WHERE {
-  # https://www.w3.org/TR/r2rml/#term-map 7.4
-  # ISSUE: does not take into account rr:Literal, if it is an object map and a column-based term map.
-  OPTIONAL {?termMap rr:termType ?termType0 }
-  OPTIONAL {?termMap rr:language ?language }
-  OPTIONAL {?termMap rr:datatype ?datatype }
-  BIND( IF( BOUND(?termType0), 
-          ?termType0, 
-          IF(?typeMap = rr:ObjectMap && (BOUND(?language) || BOUND(?datatype)), rr:Literal, rr:IRI)
-    ) AS ?termType )
+  # a blank node without expression: one per iteration, bound by the
+  # enclosing triples-map query (templates/triplesMap.rqg)
+  TEMPLATE { "BIND(?bn_" ?role " AS ?" ?role ") " }
+  WHERE { FILTER(!BOUND(?c) && !BOUND(?r) && !BOUND(?tpl) && ?tt = "BlankNode") } .
+}
+WHERE {
+  OPTIONAL { ?t (rr:constant|rmlc:constant) ?c0 }
+  BIND(IF(?const != <urn:x-rml2sg:none>, ?const, ?c0) AS ?c)
+  OPTIONAL { ?t (rml:reference|rmlc:reference|rr:column) ?r0 }
+  BIND(COALESCE(STR(?r0), IF(?ref != "", ?ref, ?none)) AS ?r)
+  OPTIONAL { ?t (rr:template|rmlc:template) ?tpl0 }
+  BIND(STR(?tpl0) AS ?tpl)
+  OPTIONAL { ?t (rr:termType|rmlc:termType) ?tt0 }
+  OPTIONAL { ?t (rr:language|rmlc:language) ?lang }
+  OPTIONAL { ?t rmlc:languageMap ?lm }
+  OPTIONAL { ?t (rr:datatype|rmlc:datatype) ?dt }
+  OPTIONAL { ?t rmlc:datatypeMap ?dm }
+  # term type: explicit, or the default of RML ("Default term types")
+  BIND(COALESCE(REPLACE(STR(?tt0), "^.*[#/]", ""),
+       IF(?kind = "object" && (BOUND(?r) || BOUND(?lang) || BOUND(?lm) || BOUND(?dt) || BOUND(?dm)),
+          "Literal",
+       IF(?kind = "key" || ?kind = "language", "Literal", "IRI"))) AS ?tt)
+  # the text of a constant: an IRI, a literal, or (as a string) a key
+  BIND(IF(?kind = "key" || ?kind = "language", CONCAT("\"", REPLACE(REPLACE(STR(?c), "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\""),
+       IF(isIRI(?c), CONCAT("<", STR(?c), ">"),
+       IF(isLiteral(?c),
+          CONCAT("\"", REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(STR(?c), "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\n", "\\\\n"), "\r", "\\\\r"), "\\\{", "\\\\\{"), "\"",
+                 IF(LANG(?c) != "", CONCAT("@", LANG(?c)),
+                 IF(DATATYPE(?c) != xsd:string, CONCAT("^^<", STR(DATATYPE(?c)), ">"), ""))),
+       "BNODE()")))
+       AS ?constText)
 }

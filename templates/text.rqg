@@ -1,0 +1,31 @@
+# text_f(T): the expression that computes the text of RML template ?tpl,
+#   CONCAT("s0", f(STR(?v1)), "s1", ...)
+# with f = IRI-safe encoding (?enc = "iri"), ENCODE_FOR_URI ("uri") or the
+# identity ("none"); ?v_i is the variable of reference r_i in role ?role.
+#
+# String literals of the generated query are written with \ " newline and {
+# escaped (SPARQL-Generate reads "{" in a string as an embedded expression).
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/text.rqg>(?tpl, ?enc, ?role, ?rf) {
+  "CONCAT(\"\""
+  TEMPLATE { ", " ?part }
+  # one match per segment: group 1 is the literal text, group 2 "{reference}"
+  ITERATOR iter:regex(?tpl, "((?:[^\{}\\\\]|\\\\.)*)(\\\{(?:[^\{}\\\\]|\\\\.)*}|$)", 1, 2) AS ?lit0 ?g
+  WHERE {
+    BIND(REPLACE(?lit0, "\\\\(.)", "$1") AS ?lit)
+    BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?lit, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\n", "\\\\n"), "\r", "\\\\r"), "\\\{", "\\\\\{"), "\"") AS ?litText)
+    # unbound for the last segment, which has no reference
+    BIND(IF(STRLEN(?g) > 0, REPLACE(SUBSTR(?g, 2, STRLEN(?g) - 2), "\\\\(.)", "$1"), ?none) AS ?ref)
+    BIND(CONCAT("STR(", IF(?rf = "CSV", "?c_", CONCAT("?", ?role, "_")), SUBSTR(MD5(?ref), 1, 12), ")") AS ?value)
+    BIND(IF(?enc = "iri", REPLACE(?irisafe, "§", ?value),
+         IF(?enc = "uri", CONCAT("ENCODE_FOR_URI(", ?value, ")"), ?value)) AS ?refText)
+    BIND(CONCAT(IF(STRLEN(?lit) > 0, ?litText, ""),
+                IF(STRLEN(?lit) > 0 && BOUND(?refText), ", ", ""),
+                COALESCE(?refText, "")) AS ?part)
+    FILTER(STRLEN(?part) > 0)
+  } .
+  ")"
+}
+SOURCE <templates/iri-safe.txt> AS ?irisafe0
+WHERE { BIND(REPLACE(STR(?irisafe0), "\n", "") AS ?irisafe) }
