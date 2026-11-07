@@ -61,21 +61,31 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     BIND(COALESCE(?pm0, <urn:x-rml2sg:none>) AS ?pt)
     BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
     BIND(COALESCE(?oc0, <urn:x-rml2sg:none>) AS ?oc)
-    # (nested OPTIONALs: an OPTIONAL on an unbound ?ptm would match any map)
-    OPTIONAL { ?om0 (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
+    # (an OPTIONAL on an unbound variable would match any node: ?omx is
+    # always bound, and the OPTIONALs are nested)
+    BIND(COALESCE(?om0, <urn:x-rml2sg:none>) AS ?omx)
+    OPTIONAL { ?omx (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
                OPTIONAL { ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm } }
     # a referencing object map is translated here only without join, on the
     # same logical source: the object is then the parent's subject, on the
     # same iteration
     FILTER(!BOUND(?ptm) || (
-      NOT EXISTS { ?om0 (rr:joinCondition|rmlc:joinCondition) ?anon3 } && EXISTS {
+      NOT EXISTS { ?omx (rr:joinCondition|rmlc:joinCondition) ?anon3 } && EXISTS {
         ?tm (rml:logicalSource|rmlc:logicalSource) ?ls1 .
         ?ptm (rml:logicalSource|rmlc:logicalSource) ?ls2 .
         FILTER(?ls1 = ?ls2 || EXISTS {
-          ?ls1 (rml:source|rmlc:source) ?src ; (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
-          ?ls2 (rml:source|rmlc:source) ?src ; (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
-          FILTER NOT EXISTS { ?ls1 (rml:iterator|rmlc:iterator) ?i1 . FILTER NOT EXISTS { ?ls2 (rml:iterator|rmlc:iterator) ?i1 } }
-          FILTER NOT EXISTS { ?ls2 (rml:iterator|rmlc:iterator) ?i2 . FILTER NOT EXISTS { ?ls1 (rml:iterator|rmlc:iterator) ?i2 } }
+          # effectively equal logical sources: same source, reference
+          # formulation and iterator
+          ?ls1 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfa .
+          ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfa .
+          OPTIONAL { ?ls1 (rml:source|rmlc:source) ?sa FILTER(isLiteral(?sa)) }
+          OPTIONAL { ?ls1 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?pa }
+          OPTIONAL { ?ls2 (rml:source|rmlc:source) ?sb FILTER(isLiteral(?sb)) }
+          OPTIONAL { ?ls2 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?pb }
+          OPTIONAL { ?ls1 (rml:iterator|rmlc:iterator) ?ia }
+          OPTIONAL { ?ls2 (rml:iterator|rmlc:iterator) ?ib }
+          FILTER(STR(COALESCE(?pa, ?sa, "")) = STR(COALESCE(?pb, ?sb, ""))
+                 && STR(COALESCE(?ia, "")) = STR(COALESCE(?ib, "")))
         })
       }))
     BIND(IF(BOUND(?ptm), ?psm, COALESCE(?om0, <urn:x-rml2sg:none>)) AS ?ot)
