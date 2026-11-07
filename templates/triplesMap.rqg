@@ -1,7 +1,13 @@
 # τ(m): one sub-query per triples map ?tm, which iterates over its logical
 # source once; nested in it, one sub-query for the classes and one per
 # (predicate-object map, predicate map, object map), evaluated once per
-# iteration (rml-translation.md, Sections 3 and 6). Referencing object maps
+# iteration (rml-translation.md, Sections 3 and 6).
+#
+# CSV (rewriting R1 of τ'): a reference has one value per row, so each of
+# those sub-queries has at most one solution; they are flattened into the
+# iteration: every term is bound once per row by the binding clauses, under
+# the names ?p_<key>, ?o_<key> of iterators/poms.rqg, and every triple is in
+# the one template of the triples map. Referencing object maps
 # with a join, or over another logical source, are translated apart, at the
 # top level (templates/join.rqg), so that the parent is read once.
 #
@@ -30,6 +36,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     "} .\n"
   }
   WHERE {
+    FILTER(?rf != "CSV")
     ?tm (rr:subjectMap|rmlc:subjectMap) ?sm .
     FILTER EXISTS { ?sm (rr:class|rmlc:class) ?anon1 }
     FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon2 }
@@ -53,6 +60,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     "} .\n"
   }
   WHERE {
+    FILTER(?rf != "CSV")
     OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm0 }
     OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc0 }
     BIND(COALESCE(?sm0, <urn:x-rml2sg:none>) AS ?st)
@@ -99,9 +107,33 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
                     FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
   } .
 
+  # CSV: the triples of the classes and of the predicate-object maps
+  TEMPLATE { "    ?s a <" STR(?class) "> .\n" }
+  WHERE {
+    FILTER(?rf = "CSV")
+    ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
+    FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon2 }
+        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
+                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  } .
+  TEMPLATE { "    ?s ?p_" ?key " ?o_" ?key " .\n" }
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
+  WHERE { FILTER(?rf = "CSV") } .
+
   "  }\n  "
   TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
 
+  # one blank node per iteration for a blank node map without expression
+  # (rml-translation.md, bn(m, i)): ?bn_s for the subject map, ?bn_o for the
+  # object maps
+  TEMPLATE { "\n  BIND(BNODE() AS ?bn_" ?role ")" }
+  WHERE {
+    { ?tm (rr:subjectMap|rmlc:subjectMap) ?t BIND("s" AS ?role) }
+    UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?t BIND("o" AS ?role) }
+    ?t (rr:termType|rmlc:termType) ?tt .
+    FILTER(?tt IN (rr:BlankNode, rmlc:BlankNode))
+    FILTER NOT EXISTS { ?t (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 }
+  } GROUP BY ?role .
   # CSV: a row is one iteration, so the subject is computed once per row, in
   # the binding clauses, and read by every nested sub-query (JSONPath and
   # XPath subjects may have several values: computed in each sub-query)
@@ -116,17 +148,13 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     BIND(COALESCE(?sc1, <urn:x-rml2sg:none>) AS ?sc)
   } .
 
-  # one blank node per iteration for a blank node map without expression
-  # (rml-translation.md, bn(m, i)): ?bn_s for the subject map, ?bn_o for the
-  # object maps
-  TEMPLATE { "\n  BIND(BNODE() AS ?bn_" ?role ")" }
-  WHERE {
-    { ?tm (rr:subjectMap|rmlc:subjectMap) ?t BIND("s" AS ?role) }
-    UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?t BIND("o" AS ?role) }
-    ?t (rr:termType|rmlc:termType) ?tt .
-    FILTER(?tt IN (rr:BlankNode, rmlc:BlankNode))
-    FILTER NOT EXISTS { ?t (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 }
-  } GROUP BY ?role .
+  # CSV: the terms of the predicate-object maps, once per row
+  TEMPLATE {
+    "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?key), "predicate", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?key), ?okind, ?rf, ?dialect, ?base) .
+  }
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
+  WHERE { FILTER(?rf = "CSV") } .
   " .\n"
 }
 WHERE {
