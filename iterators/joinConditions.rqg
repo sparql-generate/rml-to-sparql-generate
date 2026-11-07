@@ -1,0 +1,25 @@
+# The join conditions of referencing object map ?om, one per row:
+#   ?h        a name for the condition: a hash of its child and parent
+#             expressions (a join condition is usually a blank node)
+#   ?ct ?cr   the child side: a term map (rml:childMap) or <urn:x-rml2sg:none>,
+#             and a reference given as a string (rr:child) or ""
+#   ?pt ?pr   the parent side, likewise (rml:parentMap, rr:parent)
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+SELECT <iterators/joinConditions.rqg>(?om) ?h ?ct ?cr ?pt ?pr
+WHERE {
+  ?om (rr:joinCondition|rmlc:joinCondition) ?jc .
+  OPTIONAL { ?jc rmlc:childMap ?ct0 }
+  OPTIONAL { ?jc (rr:child|rmlc:child) ?cr0 }
+  OPTIONAL { ?jc rmlc:parentMap ?pt0 }
+  OPTIONAL { ?jc (rr:parent|rmlc:parent) ?pr0 }
+  OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?cv }
+  OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?pv }
+  BIND(COALESCE(?ct0, <urn:x-rml2sg:none>) AS ?ct)
+  BIND(COALESCE(STR(?cr0), "") AS ?cr)
+  BIND(COALESCE(?pt0, <urn:x-rml2sg:none>) AS ?pt)
+  BIND(COALESCE(STR(?pr0), "") AS ?pr)
+  BIND(SUBSTR(MD5(CONCAT(STR(COALESCE(?cr0, ?cv, "")), "|", STR(COALESCE(?pr0, ?pv, "")))), 1, 8) AS ?h)
+}
+ORDER BY ?h
