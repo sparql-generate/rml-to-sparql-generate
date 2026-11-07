@@ -66,8 +66,7 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
       IF(?kind = "key" || ?kind = "language", ?sl,
       IF(?tt = "IRI" || ?tt = "URI" || ?tt = "UnsafeIRI",
          CONCAT("IRI(IF(REGEX(", ?sl, ", \"^[A-Za-z][A-Za-z0-9+.-]*:\"), ", ?sl, ", CONCAT(", ?baseText, ", ", ?sl, ")))"),
-      IF(?tt = "BlankNode",
-         CONCAT("IRI(CONCAT(\"https://w3id.org/sparql-generate/.well-known/genid/\", ENCODE_FOR_URI(", ?sl, ")))"),
+      IF(?tt = "BlankNode", CONCAT("fun:bnode(", ?sl, ")"),
       IF(BOUND(?lang), CONCAT("STRLANG(", ?sl, ", \"", STR(?lang), "\")"),
       IF(BOUND(?lm), CONCAT("STRLANG(", ?sl, ", ?", ?role, "lang)"),
       IF(BOUND(?dt), CONCAT("STRDT(", ?sl, ", <", STR(?dt), ">)"),
@@ -104,6 +103,6 @@ WHERE {
           CONCAT("\"", REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(STR(?c), "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\n", "\\\\n"), "\r", "\\\\r"), "\\\{", "\\\\\{"), "\"",
                  IF(LANG(?c) != "", CONCAT("@", LANG(?c)),
                  IF(DATATYPE(?c) != xsd:string, CONCAT("^^<", STR(DATATYPE(?c)), ">"), ""))),
-       "BNODE()")))
+       "fun:bnode(\"urn:x-rml2sg:constant-blank-node\")")))
        AS ?constText)
 }

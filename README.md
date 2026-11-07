@@ -35,7 +35,7 @@ object map).
 | `ql:JSONPath` / `rml:JSONPath` | `ITERATOR iter:JSONPath(<file>, "<iterator>") AS ?it`, then one `ITERATOR iter:JSONPath(?it, "<ref>", "$")` per reference: a multi-valued reference gives one term per value |
 | `ql:XPath` / `rml:XPath` | `ITERATOR iter:XPath(<file>, "<iterator>") AS ?it`, then one `ITERATOR iter:XPath(?it, "/*/<ref>/text()")` per reference |
 | `rr:constant`, `rml:reference`, `rr:template` (escapes `\{ \} \\`) | constants, variables, `CONCAT(...)` |
-| term types `IRI` (IRI-safe encoding, exact on non-ASCII), `URI`, `UnsafeIRI`, `Literal`, `BlankNode` | `IRI(...)` with base-IRI concatenation, `STRLANG`, `STRDT`, Skolem IRIs |
+| term types `IRI` (IRI-safe encoding, exact on non-ASCII), `URI`, `UnsafeIRI`, `Literal`, `BlankNode` | `IRI(...)` with base-IRI concatenation, `STRLANG`, `STRDT`, `fun:bnode(...)` |
 | `rr:language`, `rr:datatype`, `rml:languageMap`, `rml:datatypeMap` | `STRLANG`, `STRDT` |
 | `rr:class`, shortcuts `rr:subject`/`rr:predicate`/`rr:object`/`rr:graph` | yes |
 | referencing object map, same logical source, no join | the parent's subject, on the same iteration |
@@ -46,8 +46,8 @@ object map).
 
 Blank nodes. RML gives one blank node per value, across iterations and
 triples maps; a SPARQL `BNODE(str)` is fresh for each solution. The generated
-query therefore writes Skolem IRIs `https://w3id.org/sparql-generate/.well-known/genid/<value>`,
-to be replaced by blank nodes in the output (one per IRI).
+query uses `fun:bnode(str)` (SPARQL-Generate 2.2): the same blank node for the
+same string during one execution, sub-queries included.
 
 ## Conformance
 

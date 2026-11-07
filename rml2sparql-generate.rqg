@@ -23,6 +23,7 @@ TEMPLATE {
   TEMPLATE <templates/checks.rqg>(?dialect) .
   "BASE <" ?base ">\n"
   "PREFIX iter: <http://w3id.org/sparql-generate/iter/>\n"
+  "PREFIX fun: <http://w3id.org/sparql-generate/fn/>\n"
   "\nGENERATE \{\n"
 
   TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase)
