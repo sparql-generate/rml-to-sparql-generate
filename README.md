@@ -51,10 +51,21 @@ same string during one execution, sub-queries included.
 
 ## Conformance
 
-Measured by [kgc-bench](../kgc-bench) on the RML test cases
-(RMLio/rml-test-cases@803dd3ec, CSV, JSON and XML tracks; and the
-kg-construct RML-Core test cases), by RDF dataset isomorphism. See
-`kgc-bench/results/results.md`.
+Measured by kgc-bench on SPARQL-Generate 2.2.0-SNAPSHOT, by RDF dataset isomorphism with
+the expected output of each case (an expected error passes when an error is raised):
+
+| suite | cases | PASS | N/A (graph maps) | FAIL |
+|---|---|---|---|---|
+| RMLio/rml-test-cases@803dd3ec, CSV | 39 | 31 | 6 | 2 |
+| RMLio/rml-test-cases@803dd3ec, JSON | 40 | 32 | 6 | 2 |
+| RMLio/rml-test-cases@803dd3ec, XML | 38 | 30 | 6 | 2 |
+| kg-construct/rml-core@82ab28d4, JSON | 76 | 64 | 7 | 5 |
+
+Graph maps need quad templates (`GENERATE { GRAPH ?g { ... } }`), planned for
+SPARQL-Generate 2.3; the default graph of those cases is checked. The failures are
+errors that only the data reveal (an unknown column, file or JSONPath; an invalid IRI),
+which the generated query does not raise, and `rml:UnsafeIRI` values with spaces, which
+Jena's `IRI()` rejects.
 
 ## History
 
