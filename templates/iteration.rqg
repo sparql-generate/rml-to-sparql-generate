@@ -1,8 +1,11 @@
 # The iteration over the logical source of triples map ?tm:
 #
-#   CSV       ITERATOR iter:CSV(<file>, "r1", ..., "rn") AS ?c_<md5(r1)> ...
+#   CSV       ITERATOR iter:CSV(<file>, 10000, "r1", ..., "rn") AS ?c_<md5(r1)> ...
 #             one solution per row, binding the columns used by the term maps
 #             of ?scope (see iterators/pieces.rqg); an empty cell is unbound;
+#             read in batches of 10 000 rows (R4 of τ': the queries of τ have
+#             no solution modifier, so a GENERATE gives the union of what each
+#             batch gives, and a streamed output is written batch by batch);
 #   JSONPath  ITERATOR iter:JSONPath(<file>, "<iterator>") AS ?it
 #   XPath     ITERATOR iter:XPath(<file>, "<iterator>") AS ?it
 #
@@ -18,7 +21,7 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
   "ITERATOR "
 
   TEMPLATE {
-    "iter:CSV(" ?srcText
+    "iter:CSV(" ?srcText ", 10000"
     TEMPLATE { ", " ?col }
     ITERATOR <iterators/references.rqg>(?scope, ?tm, ?pom, ?om) AS ?r
     WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
