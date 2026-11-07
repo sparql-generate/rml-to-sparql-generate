@@ -5,9 +5,9 @@
 #
 # CSV (rewriting R1 of τ'): a reference has one value per row, so each of
 # those sub-queries has at most one solution; they are flattened into the
-# iteration: every term is bound once per row by the binding clauses, under
-# the names ?p_<key>, ?o_<key> of iterators/poms.rqg, and every triple is in
-# the one template of the triples map. Referencing object maps
+# iteration: every term is bound once per row in the WHERE clause of the
+# triples map, under the names ?p_<key>, ?o_<key> of iterators/poms.rqg, and
+# every triple is in the one template of the triples map. Referencing object maps
 # with a join, or over another logical source, are translated apart, at the
 # top level (templates/join.rqg), so that the parent is read once.
 #
@@ -123,6 +123,10 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
   "  }\n  "
   TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
 
+  # CSV: the terms are bound in the WHERE clause of the triples map, which the
+  # engine evaluates once per batch of rows
+  TEMPLATE { "\n  WHERE \{" } WHERE { FILTER(?rf = "CSV") } .
+
   # one blank node per iteration for a blank node map without expression
   # (rml-translation.md, bn(m, i)): ?bn_s for the subject map, ?bn_o for the
   # object maps
@@ -155,6 +159,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
   }
   ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
   WHERE { FILTER(?rf = "CSV") } .
+  TEMPLATE { "\n  }" } WHERE { FILTER(?rf = "CSV") } .
   " .\n"
 }
 WHERE {
