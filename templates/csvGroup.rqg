@@ -1,0 +1,79 @@
+# R3 of τ': the triples maps of group ?src (CSV, see iterators/tms.rqg) in one
+# sub-query that reads the file once:
+#
+#   GENERATE { ?s_<t> a <C> . ?s_<t> ?p_<key> ?o_<key> . ... (every triples map <t>) }
+#   ITERATOR iter:CSV(<file>, 10000, <the union of their columns>) AS ?c_...
+#   WHERE { <subject of each triples map, as ?s_<t>> <terms of its pairs, R1> } .
+#
+# The union of two GENERATE that iterate over the same rows is one GENERATE
+# that iterates over them once with both templates, the variables renamed
+# apart: <t> names the triples map, <key> the pair of term maps.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
+  "\n  # triples maps"
+  TEMPLATE { " <" STR(?tm) ">" }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  WHERE { FILTER(?group = ?src) } .
+  ", one iteration of " ?srcText "\n  GENERATE \{\n"
+
+  # the classes of each triples map
+  TEMPLATE { "    ?s_" ?t " a <" STR(?class) "> .\n" }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  WHERE {
+    FILTER(?group = ?src)
+    ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
+    FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon1 }
+        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
+                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
+    BIND(SUBSTR(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))), 1, 10) AS ?t)
+  } .
+  # the triples of each pair of term maps
+  TEMPLATE { "    ?s_" ?t " ?p_" ?key " ?o_" ?key " .\n" }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
+  WHERE {
+    FILTER(?group = ?src)
+    BIND(SUBSTR(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))), 1, 10) AS ?t)
+  } .
+
+  "  }\n  ITERATOR iter:CSV(" ?srcText ", 10000"
+  TEMPLATE { ", " ?col }
+  ITERATOR <iterators/groupReferences.rqg>(?src, ?base) AS ?r
+  WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
+  ") AS"
+  TEMPLATE { " ?c_" SUBSTR(MD5(?r), 1, 12) }
+  ITERATOR <iterators/groupReferences.rqg>(?src, ?base) AS ?r .
+
+  "\n  WHERE \{"
+  # the subject of each triples map
+  TEMPLATE {
+    "\n  " TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", CONCAT("s_", ?t), "subject", "CSV", ?dialect, ?tmbase) .
+  }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  WHERE {
+    FILTER(?group = ?src)
+    OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm1 }
+    OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc1 }
+    BIND(COALESCE(?sm1, <urn:x-rml2sg:none>) AS ?st)
+    BIND(COALESCE(?sc1, <urn:x-rml2sg:none>) AS ?sc)
+    BIND(SUBSTR(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))), 1, 10) AS ?t)
+  } .
+  # the terms of each pair of term maps
+  TEMPLATE {
+    "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?key), "predicate", "CSV", ?dialect, ?tmbase) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?key), ?okind, "CSV", ?dialect, ?tmbase) .
+  }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind
+  WHERE { FILTER(?group = ?src) } .
+  "\n  } .\n"
+}
+WHERE {
+  BIND(IF(REGEX(?src, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?src,
+       IF(STRSTARTS(?src, "/"), CONCAT("file://", ?src), ?src)) AS ?iri)
+  BIND(CONCAT("<", REPLACE(?iri, " ", "%20"), ">") AS ?srcText)
+}

@@ -1,0 +1,59 @@
+# The triples maps of the mapping, with their reference formulation ?rf, their
+# base IRI ?tmbase, and ?group: the source shared with other triples maps (R3
+# of τ': one iteration for them all, templates/csvGroup.rqg), or "" when the
+# triples map is translated alone (templates/triplesMap.rqg).
+#
+# A triples map is grouped when its source is CSV, read by at least one other
+# such triples map, and when it has a reference (the shared iteration binds
+# the union of the columns) and no blank node map without expression (whose
+# blank node is one per iteration and per triples map).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+SELECT <iterators/tms.rqg>(?base) ?tm ?rf ?tmbase ?group
+WHERE {
+  ?tm (rml:logicalSource|rmlc:logicalSource)/(rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
+  BIND(REPLACE(STR(?rfi), "^.*[#/]", "") AS ?rf)
+  FILTER(?rf IN ("CSV", "JSONPath", "XPath"))
+  OPTIONAL { ?tm rmlc:baseIRI ?b }
+  BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
+  OPTIONAL {
+    { SELECT ?tm ?src WHERE {
+        ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
+        ?ls (rml:referenceFormulation|rmlc:referenceFormulation) ?rf1 .
+        FILTER(REPLACE(STR(?rf1), "^.*[#/]", "") = "CSV")
+        OPTIONAL { ?ls (rml:source|rmlc:source) ?s0 FILTER(isLiteral(?s0)) }
+        OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p0 }
+        BIND(STR(COALESCE(?p0, ?s0)) AS ?src)
+        FILTER EXISTS {
+          { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
+          UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap) ?t }
+          ?t (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anon1 }
+        FILTER NOT EXISTS {
+          { ?tm (rr:subjectMap|rmlc:subjectMap) ?u }
+          UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?u }
+          ?u (rr:termType|rmlc:termType) ?tt . FILTER(?tt IN (rr:BlankNode, rmlc:BlankNode))
+          FILTER NOT EXISTS { ?u (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon2 } }
+      } }
+    { SELECT ?src WHERE {
+        ?tm2 (rml:logicalSource|rmlc:logicalSource) ?ls2 .
+        ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?rf2 .
+        FILTER(REPLACE(STR(?rf2), "^.*[#/]", "") = "CSV")
+        OPTIONAL { ?ls2 (rml:source|rmlc:source) ?s2 FILTER(isLiteral(?s2)) }
+        OPTIONAL { ?ls2 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p2 }
+        BIND(STR(COALESCE(?p2, ?s2)) AS ?src)
+        FILTER EXISTS {
+          { ?tm2 (rr:subjectMap|rmlc:subjectMap) ?t2 }
+          UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap) ?t2 }
+          ?t2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anon3 }
+        FILTER NOT EXISTS {
+          { ?tm2 (rr:subjectMap|rmlc:subjectMap) ?u2 }
+          UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?u2 }
+          ?u2 (rr:termType|rmlc:termType) ?tt2 . FILTER(?tt2 IN (rr:BlankNode, rmlc:BlankNode))
+          FILTER NOT EXISTS { ?u2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 } }
+      } GROUP BY ?src HAVING (COUNT(DISTINCT ?tm2) > 1) }
+  }
+  BIND(COALESCE(?src, "") AS ?group)
+}
+ORDER BY ?tm

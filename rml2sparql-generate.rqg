@@ -26,14 +26,14 @@ TEMPLATE {
   "PREFIX fun: <http://w3id.org/sparql-generate/fn/>\n"
   "\nGENERATE \{\n"
 
-  TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase)
-  WHERE {
-    ?tm (rml:logicalSource|rmlc:logicalSource)/(rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
-    BIND(REPLACE(STR(?rfi), "^.*[#/]", "") AS ?rf)
-    FILTER(?rf IN ("CSV", "JSONPath", "XPath"))
-    OPTIONAL { ?tm rmlc:baseIRI ?b }
-    BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
-  } ORDER BY ?tm .
+  # each triples map alone, or (R3 of τ') the triples maps of a shared CSV
+  # source in one iteration
+  TEMPLATE { TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase) . }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  WHERE { FILTER(?group = "") } .
+
+  TEMPLATE { TEMPLATE <templates/csvGroup.rqg>(?group, ?dialect, ?base) . }
+  ITERATOR <iterators/groups.rqg>(?base) AS ?group .
 
   TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?tmbase, ?pbase)
   WHERE {

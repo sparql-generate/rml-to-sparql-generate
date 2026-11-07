@@ -60,6 +60,7 @@ same distinct triples):
 |---|---|---|
 | R1 | the sub-queries of an iteration (one for the classes, one per predicate map and object map) are flattened into the WHERE clause of the triples map: each term is bound once per row, and the triples map has one template | CSV sources: a reference has one value per row, so each sub-query has at most one solution |
 | R2 | `IRI(?l)` instead of a run-time test for a relative IRI | templates whose constant text starts with a scheme |
+| R3 | the triples maps of a CSV source read by several of them share one iteration of the file (their variables renamed apart) | CSV triples maps with a reference, and without a blank node map without expression |
 | R4 | CSV files are read in batches of 10 000 rows (a streamed output is written batch by batch) | always: the generated queries have no solution modifier |
 
 The translation needs SPARQL-Generate 2.2.3 or later.
