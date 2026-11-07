@@ -49,24 +49,39 @@ triples maps; a SPARQL `BNODE(str)` is fresh for each solution. The generated
 query uses `fun:bnode(str)` (SPARQL-Generate 2.2): the same blank node for the
 same string during one execution, sub-queries included.
 
+## Optimised translation τ'
+
+The generated query is τ, the proved translation of the formal semantics, followed by
+mechanical rewritings; each is exact (the same output up to isomorphism), and is checked
+by the conformance suites (no case changes status) and by the benchmark workloads (the
+same distinct triples):
+
+| | rewriting | when |
+|---|---|---|
+| R1 | the sub-queries of an iteration (one for the classes, one per predicate map and object map) are flattened into its binding clauses: each term is bound once per row, and the triples map has one template | CSV sources: a reference has one value per row, so each sub-query has at most one solution |
+| R2 | `IRI(?l)` instead of a run-time test for a relative IRI | templates whose constant text starts with a scheme |
+
+The translation needs SPARQL-Generate 2.2.3 or later.
+
 ## Conformance
 
-Measured by kgc-bench on SPARQL-Generate 2.2.2 (release), by RDF dataset isomorphism with
-the expected output of each case (an expected error passes when an error is raised):
+Measured by kgc-bench on SPARQL-Generate 2.2.3 (release) and pysparql-generate, which give
+the same status on every case, by RDF dataset isomorphism with the expected output of each
+case (an expected error passes when an error is raised, with `--fail-on-missing`):
 
 | suite | cases | PASS | N/A (graph maps) | FAIL |
 |---|---|---|---|---|
-| RMLio/rml-test-cases@803dd3ec, CSV | 39 | 31 | 6 | 2 |
-| RMLio/rml-test-cases@803dd3ec, JSON | 40 | 32 | 6 | 2 |
-| RMLio/rml-test-cases@803dd3ec, XML | 38 | 30 | 6 | 2 |
-| kg-construct/rml-core@82ab28d4, JSON | 76 | 65 | 7 | 4 |
+| RMLio/rml-test-cases@803dd3ec, CSV | 39 | 32 | 6 | 1 |
+| RMLio/rml-test-cases@803dd3ec, JSON | 40 | 33 | 6 | 1 |
+| RMLio/rml-test-cases@803dd3ec, XML | 38 | 31 | 6 | 1 |
+| kg-construct/rml-core@82ab28d4, JSON | 76 | 66 | 7 | 3 |
 
 Graph maps need quad templates (`GENERATE { GRAPH ?g { ... } }`), planned for
 SPARQL-Generate 2.3; the default graph of those cases is checked. The failures are
 errors that only the data reveal (an unknown column or file, a reference to an array, an
 invalid IRI), which the generated query does not raise, and `rml:UnsafeIRI` values with
 spaces, which the engine rejects as IRIs (Jena's `IRI()`, also behind `<...{?x}>`). A
-missing file is only a warning in 2.2.2; it is an error from the next release on.
+missing file is an error with `--fail-on-missing` (2.2.3).
 
 ## History
 
