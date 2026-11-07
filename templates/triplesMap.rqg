@@ -25,7 +25,8 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     " }\n    "
     TEMPLATE <templates/referenceIterators.rqg>(?sm, "", "s", ?rf, ?dialect) .
     "WHERE \{ "
-    TEMPLATE <templates/termMap.rqg>(?sm, <urn:x-rml2sg:none>, "", "s", "subject", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?sm, <urn:x-rml2sg:none>, "", "s", "subject", ?rf, ?dialect, ?base)
+    WHERE { FILTER(?rf != "CSV") } .
     "} .\n"
   }
   WHERE {
@@ -45,7 +46,8 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
     TEMPLATE <templates/referenceIterators.rqg>(?olm, "", "olang", ?rf, ?dialect) WHERE { ?ot rmlc:languageMap ?olm } .
     TEMPLATE <templates/referenceIterators.rqg>(?odm, "", "odt", ?rf, ?dialect) WHERE { ?ot rmlc:datatypeMap ?odm } .
     "WHERE \{ "
-    TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base)
+    WHERE { FILTER(?rf != "CSV") } .
     TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
     TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", "o", ?okind, ?rf, ?dialect, ?base) .
     "} .\n"
@@ -99,6 +101,20 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base) {
 
   "  }\n  "
   TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
+
+  # CSV: a row is one iteration, so the subject is computed once per row, in
+  # the binding clauses, and read by every nested sub-query (JSONPath and
+  # XPath subjects may have several values: computed in each sub-query)
+  TEMPLATE {
+    "\n  " TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+  }
+  WHERE {
+    FILTER(?rf = "CSV")
+    OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm1 }
+    OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc1 }
+    BIND(COALESCE(?sm1, <urn:x-rml2sg:none>) AS ?st)
+    BIND(COALESCE(?sc1, <urn:x-rml2sg:none>) AS ?sc)
+  } .
 
   # one blank node per iteration for a blank node map without expression
   # (rml-translation.md, bn(m, i)): ?bn_s for the subject map, ?bn_o for the
