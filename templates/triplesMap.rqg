@@ -1,9 +1,9 @@
-# τ(m): one sub-query per triples map ?tm, which iterates over its logical
+# One sub-query per triples map ?tm, which iterates over its logical
 # source once; nested in it, one sub-query for the classes and one per
 # (predicate-object map, predicate map, object map), evaluated once per
-# iteration (rml-translation.md, Sections 3 and 6).
+# iteration.
 #
-# CSV (rewriting R1 of τ'): a reference has one value per row, so each of
+# CSV (rewriting R1, README.md): a reference has one value per row, so each of
 # those sub-queries has at most one solution; they are flattened into the
 # iteration: every term is bound once per row in the WHERE clause of the
 # triples map, under the names ?p_<key>, ?o_<key> of iterators/poms.rqg, and
@@ -14,7 +14,7 @@
 # GENERATE writes triples to the default graph only: a predicate-object map
 # is translated when its triples go to the default graph, that is when
 # neither it nor the subject map has a graph map, or when one of them is
-# rr:defaultGraph (rml-translation.md, Section 7).
+# rr:defaultGraph.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
@@ -136,7 +136,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   TEMPLATE { "\n  WHERE \{" } WHERE { FILTER(?rf = "CSV") } .
 
   # one blank node per iteration for a blank node map without expression
-  # (rml-translation.md, bn(m, i)): ?bn_s for the subject map, ?bn_o for the
+  # ?bn_s for the subject map, ?bn_o for the
   # object maps
   TEMPLATE { "\n  BIND(BNODE() AS ?bn_" ?role ")" }
   WHERE {

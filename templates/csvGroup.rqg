@@ -1,4 +1,4 @@
-# R3 of τ': the triples maps of group ?src (CSV, see iterators/tms.rqg) in one
+# Rewriting R3 (README.md): the triples maps of group ?src (CSV, see iterators/tms.rqg) in one
 # sub-query that reads the file once:
 #
 #   GENERATE { ?s_<t> a <C> . ?s_<t> ?p_<key> ?o_<key> . ... (every triples map <t>) }

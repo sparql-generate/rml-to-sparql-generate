@@ -22,9 +22,7 @@ the files of the data directory.
 
 ## What it translates
 
-The translation is τ of the formal semantics of SPARQL-Generate
-(`rml-translation.md`, companion of the SPARQL-Generate semantics): one
-sub-query per triples map, iterating once over its logical source, with one
+The direct translation generates one sub-query per triples map, iterating once over its logical source, with one
 nested sub-query per class set and per (predicate-object map, predicate map,
 object map).
 
@@ -49,10 +47,9 @@ triples maps; a SPARQL `BNODE(str)` is fresh for each solution. The generated
 query uses `fun:bnode(str)` (SPARQL-Generate 2.2): the same blank node for the
 same string during one execution, sub-queries included.
 
-## Optimised translation τ'
+## Optimised translation
 
-The generated query is τ, the proved translation of the formal semantics, followed by
-mechanical rewritings; each is exact (the same output up to isomorphism), and is checked
+The generated query is the direct translation, followed by mechanical rewritings; each is exact (the same output up to isomorphism), and is checked
 by the conformance suites (no case changes status) and by the benchmark workloads (the
 same distinct triples):
 

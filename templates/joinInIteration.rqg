@@ -1,9 +1,9 @@
-# τ for a referencing object map ?om (with a join condition, or over another
+# The translation of a referencing object map ?om (with a join condition, or over another
 # logical source) of a triples map whose subject map is a blank node without
-# expression: the join stays in the child's iteration, as in τ (Section 6),
+# expression: the join stays in the child's iteration,
 # because the blank node of a row must be the same in the triples of the
-# child and in the join triples (prop:join-graph, condition (a), does not
-# hold). Nested in the child's sub-query, for each child row:
+# child and in the join triples (templates/join.rqg would give two blank
+# nodes). Nested in the child's sub-query, for each child row:
 #
 #   GENERATE { ?s ?pj_<x> ?jo_<x> . }
 #     ITERATOR <the parent's iteration, columns ?jc_...>
@@ -12,7 +12,7 @@
 #
 # The child keys ?k<h>_<x> are bound in the child's WHERE clause
 # (templates/triplesMap.rqg). Only for a CSV child (no ?it of the child to
-# hide); the cost is the product of the two sources, as in τ.
+# hide); the cost is the product of the two sources.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
 

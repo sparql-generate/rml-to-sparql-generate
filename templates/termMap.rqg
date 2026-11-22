@@ -66,7 +66,7 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
     BIND(CONCAT("\"", REPLACE(REPLACE(?base, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\"") AS ?baseText)
     BIND(
       IF(?kind = "key" || ?kind = "language", ?sl,
-      # R2 of τ': a template whose constant text starts with a scheme gives
+      # Rewriting R2: a template whose constant text starts with a scheme gives
       # an absolute IRI whatever the values: no test at run time
       IF((?tt = "IRI" || ?tt = "URI" || ?tt = "UnsafeIRI") && BOUND(?tpl)
          && REGEX(?tpl, "^[A-Za-z][A-Za-z0-9+.-]*:"),

@@ -1,4 +1,4 @@
-# τ for a referencing object map ?om of predicate-object map ?pom of triples
+# The translation of a referencing object map ?om of predicate-object map ?pom of triples
 # map ?tm, with a join condition or over another logical source than its
 # parent. One sub-query at the top level of the generated query: both sides
 # are first generated as a graph, then joined by a basic graph pattern.
@@ -17,8 +17,8 @@
 # iteration, each iteration is a node (_:c, _:r) with its subject, predicate
 # and keys. A missing key value generates no key triple, hence no join; keys
 # are compared as strings (iterators/joinConditions.rqg names each condition).
-# rml-translation.md (Section 6) iterates over the parent for each child
-# iteration instead: the set of triples is the same.
+# Iterating over the parent for each child iteration would give the same
+# set of triples, at the cost of the product of the two sources.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>

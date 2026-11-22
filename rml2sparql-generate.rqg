@@ -11,8 +11,7 @@
 # query: run it with the same -b from the directory of the data.
 #
 # Both RML 1.x (rr:, rml:, ql:) and RML-Core (http://w3id.org/rml/) mappings
-# are read. The translation is τ of rml-translation.md (the semantics of
-# SPARQL-Generate); see README.md for what it covers.
+# are read; see README.md for what the translation covers.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
@@ -26,7 +25,7 @@ TEMPLATE {
   "PREFIX fun: <http://w3id.org/sparql-generate/fn/>\n"
   "\nGENERATE \{\n"
 
-  # each triples map alone, or (R3 of τ') the triples maps of a shared CSV
+  # each triples map alone, or (rewriting R3, README.md) the triples maps of a shared CSV
   # source in one iteration
   TEMPLATE { TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase, ?base) . }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group

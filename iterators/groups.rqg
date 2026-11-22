@@ -1,4 +1,4 @@
-# The sources shared by several triples maps (R3 of τ', iterators/tms.rqg).
+# The sources shared by several triples maps (rewriting R3, README.md, iterators/tms.rqg).
 SELECT <iterators/groups.rqg>(?base) DISTINCT ?group
 ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
 WHERE { FILTER(?group != "") }

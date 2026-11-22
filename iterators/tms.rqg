@@ -1,7 +1,7 @@
 # The triples maps of the mapping, with their reference formulation ?rf, their
-# base IRI ?tmbase, and ?group: the source shared with other triples maps (R3
-# of τ': one iteration for them all, templates/csvGroup.rqg), or "" when the
-# triples map is translated alone (templates/triplesMap.rqg).
+# base IRI ?tmbase, and ?group: the source shared with other triples maps
+# (rewriting R3 of README.md: one iteration for them all,
+# templates/csvGroup.rqg), or "" when the triples map is translated alone (templates/triplesMap.rqg).
 #
 # A triples map is grouped when its source is CSV, read by at least one other
 # such triples map, and when it has a reference (the shared iteration binds
