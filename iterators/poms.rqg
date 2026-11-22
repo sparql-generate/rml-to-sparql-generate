@@ -17,7 +17,7 @@ WHERE {
     BIND(COALESCE(?sc0, <urn:x-rml2sg:none>) AS ?sc)
     ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap) ?pom .
     { ?pom (rr:predicateMap|rmlc:predicateMap) ?pm0 } UNION { ?pom (rr:predicate|rmlc:predicate) ?pc0 }
-    { ?pom (rr:objectMap|rmlc:objectMap) ?om0 } UNION { ?pom (rr:object|rmlc:object) ?oc0 }
+    { ?pom (rr:objectMap|rmlc:objectMap) ?om0 FILTER NOT EXISTS { ?om0 rmlc:gather ?anyg } } UNION { ?pom (rr:object|rmlc:object) ?oc0 }
     BIND(COALESCE(?pm0, <urn:x-rml2sg:none>) AS ?pt)
     BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
     BIND(COALESCE(?oc0, <urn:x-rml2sg:none>) AS ?oc)

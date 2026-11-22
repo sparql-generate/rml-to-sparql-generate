@@ -1,0 +1,42 @@
+# The graphs of a use of the head of a gather map (templates/gatherUses.rqg),
+# as triples ?u <urn:x-rml2sg:g> <graph> in the template of the use: the
+# target graphs of subject map ?sm and predicate-object map ?pom, as in
+# templates/graphs.rqg, the default graph being <urn:x-arq:DefaultGraphNode>
+# (a GRAPH block of the engine with that name writes in the default graph); a
+# graph map with an expression is a sub-query, one graph per value.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/gatherGraphs.rqg>(?sm, ?pom, ?rf, ?dialect, ?base) {
+
+  TEMPLATE { "?u <urn:x-rml2sg:g> <urn:x-arq:DefaultGraphNode> . " }
+  WHERE {
+    FILTER((NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 }
+            && NOT EXISTS { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 })
+        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg1
+                    FILTER(?dg1 IN (rr:defaultGraph, rmlc:defaultGraph)) }
+        || EXISTS { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg2
+                    FILTER(?dg2 IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  } .
+
+  TEMPLATE { "?u <urn:x-rml2sg:g> <" STR(?gc) "> . " }
+  WHERE {
+    { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gc }
+    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gc }
+    FILTER(isIRI(?gc) && !(?gc IN (rr:defaultGraph, rmlc:defaultGraph)))
+  } GROUP BY ?gc .
+
+  TEMPLATE {
+    "GENERATE \{ ?u <urn:x-rml2sg:g> ?g . } "
+    TEMPLATE <templates/referenceIterators.rqg>(?gt, "", "g", ?rf, ?dialect) .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", "g", "graph", ?rf, ?dialect, ?base) .
+    "} . "
+  }
+  WHERE {
+    { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+  } GROUP BY ?gt ?rf ?dialect ?base .
+}
+WHERE { }

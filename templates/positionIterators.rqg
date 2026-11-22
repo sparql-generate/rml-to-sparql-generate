@@ -1,0 +1,28 @@
+# The iterator clauses of the references of term map ?t in role ?role, as in
+# templates/referenceIterators.rqg, with the position of each value
+# (?<role>_pos<md5(r)>, from 0): the members of a gather map are ordered by
+# these positions (templates/gather.rqg). CSV: no iterator, a reference has
+# one value per row.
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/positionIterators.rqg>(?t, ?role, ?rf) {
+  TEMPLATE { "ITERATOR " ?call " AS " ?vars "\n      " }
+  ITERATOR <iterators/references.rqg>("term", ?t, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+  WHERE {
+    BIND(MD5(?r) AS ?h)
+    BIND(IF(STRSTARTS(?r, "$"), ?r,
+         IF(REGEX(?r, "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"), CONCAT("$.", ?r),
+            CONCAT("$['", REPLACE(?r, "'", "\\\\'"), "']"))) AS ?jsonPath)
+    BIND(IF(STRSTARTS(?r, "/"), ?r, CONCAT("/*/", ?r)) AS ?xpath0)
+    BIND(IF(REGEX(?xpath0, "(@[^/]*|\\)|text\\(\\))$"), ?xpath0, CONCAT(?xpath0, "/text()")) AS ?xpath)
+    BIND(IF(?rf = "JSONPath", ?jsonPath, ?xpath) AS ?path)
+    BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?path, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?pathText)
+    BIND(IF(?rf = "JSONPath",
+            CONCAT("iter:JSONPath(?it, ", ?pathText, ", \"$\")"),
+            CONCAT("iter:XPath(?it, ", ?pathText, ")")) AS ?call)
+    BIND(IF(?rf = "JSONPath",
+            CONCAT("?", ?role, "_raw", ?h, " ?", ?role, "_", ?h, " ?", ?role, "_pos", ?h),
+            CONCAT("?", ?role, "_", ?h, " ?", ?role, "_pos", ?h)) AS ?vars)
+  } .
+}
+WHERE { FILTER(?rf != "CSV") }

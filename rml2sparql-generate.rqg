@@ -79,6 +79,20 @@ TEMPLATE {
     BIND(COALESCE(STR(?pb), ?base) AS ?pbase)
   } .
 
+  # gather maps (RML-CC): the collections and containers, and the triples
+  # that refer to them
+  TEMPLATE <templates/gather.rqg>(?tm, ?gm, ?pom, ?rf, ?dialect, ?tmbase)
+  WHERE {
+    { ?tm rmlc:subjectMap ?gm . BIND(<urn:x-rml2sg:none> AS ?pom) }
+    UNION { ?tm rmlc:predicateObjectMap ?pom . ?pom rmlc:objectMap ?gm }
+    ?gm rmlc:gather ?anyg .
+    ?tm rmlc:logicalSource/rmlc:referenceFormulation ?rfi .
+    BIND(REPLACE(STR(?rfi), "^.*[#/]", "") AS ?rf)
+    FILTER(?rf IN ("CSV", "JSONPath", "XPath"))
+    OPTIONAL { ?tm rmlc:baseIRI ?b }
+    BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
+  } .
+
   "}\nWHERE \{}\n"
 }
 WHERE {

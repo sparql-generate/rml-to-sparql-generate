@@ -1,0 +1,23 @@
+# The referencing object maps ?m among the members of gather map ?gm of triples map ?tm
+# (nested gather maps included) with a join condition, whose values come from
+# a join (templates/gather.rqg); without join condition, the parent's subject
+# is evaluated on the iteration of ?tm (the same logical source). ?R names ?m; ?ptm is the parent, ?prf the name of its
+# reference formulation, ?pbase its base IRI (?base by default).
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+SELECT <iterators/gatherJoins.rqg>(?tm, ?gm, ?base) DISTINCT ?m ?R ?ptm ?prf ?pbase
+WHERE {
+  ?gm (rmlc:gather/rdf:rest*/rdf:first)+ ?m .
+  ?m rmlc:parentTriplesMap ?ptm .
+  ?m rmlc:joinCondition ?jc .
+  ?ptm rmlc:logicalSource ?ls2 .
+  BIND(MD5(IF(isBlank(?m), afn:bnode(?m), STR(?m))) AS ?R)
+  ?ls2 rmlc:referenceFormulation ?prfi .
+  BIND(REPLACE(STR(?prfi), "^.*[#/]", "") AS ?prf)
+  OPTIONAL { ?ptm rmlc:baseIRI ?pb0 }
+  BIND(COALESCE(STR(?pb0), ?base) AS ?pbase)
+}
+ORDER BY ?R

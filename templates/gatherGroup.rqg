@@ -1,0 +1,177 @@
+# The records of the groups of gather map ?gm (templates/gather.rqg), in a
+# sub-query over the current iteration: the group of each head, and its elements.
+#
+#   ?P        the prefix of the variables of this gather map: ?h_<P>, ?hid_<P>,
+#             ?grp_<P> (its group), ?kp_<P> (the prefix of the keys of its
+#             elements); member k is the term map in role <P>m<k>
+#   ?OP, ?k   for a gather map that is member ?k of another one, the prefix
+#             of the enclosing gather map ("" at the top level): the head of
+#             the group is then an element of the enclosing group, recorded
+#             with each element (the enclosing element exists only when the
+#             nested collection is not empty), or with the group when empty
+#             collections are allowed
+#
+# rml:append (the default): one group per head, whose elements are the values
+# of the members, member after member, each one in the order of its values, in
+# its own sub-query. rml:cartesianProduct: one sub-query iterates over the
+# values of all the members, one group per combination of values (named
+# collection: the combinations of the same head are appended).
+#
+# At the top level, the uses of the head are recorded in the group
+# (templates/gatherUses.rqg).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/gatherGroup.rqg>(?tm, ?gm, ?pom, ?P, ?OP, ?k, ?gmode, ?gt, ?rf, ?dialect, ?base) {
+  "      GENERATE \{\n"
+  "        ?grp_" ?P " <urn:x-rml2sg:h> ?h_" ?P " ; <urn:x-rml2sg:hid> ?hid_" ?P
+  " ; <urn:x-rml2sg:as> <" STR(?as) "> ; <urn:x-rml2sg:ae> " ?aeText
+  TEMPLATE { " ; <urn:x-rml2sg:in> ?grp_" ?OP } WHERE { FILTER(?OP != "") } .
+  TEMPLATE { " ; <urn:x-rml2sg:g> ?gg_" ?P } WHERE { FILTER(?OP = "") } .
+  " .\n"
+  # an empty nested collection is allowed: the enclosing element in any case
+  TEMPLATE { "        " ?outerEl "\n" } WHERE { FILTER(?OP != "" && ?ae) } .
+
+  # the uses of the head
+  TEMPLATE <templates/gatherUses.rqg>(?tm, ?pom, ?P, ?rf, ?dialect, ?base) WHERE { FILTER(?OP = "") } .
+
+  # rml:cartesianProduct: the elements of the combination
+  TEMPLATE { "        ?e_" ?P "m" ?mk " <urn:x-rml2sg:grp> ?grp_" ?P " ; <urn:x-rml2sg:key> ?key_" ?P "m" ?mk " ; <urn:x-rml2sg:v> ?" ?P "m" ?mk " .\n" }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  WHERE { FILTER(?cartesian) } .
+
+  # rml:append: the elements of each member, in a sub-query
+  TEMPLATE {
+    "        GENERATE \{ ?e_" ?P "m" ?mk " <urn:x-rml2sg:grp> ?grp_" ?P " ; <urn:x-rml2sg:key> ?key_" ?P "m" ?mk " ; <urn:x-rml2sg:v> ?" ?P "m" ?mk " . "
+    TEMPLATE { ?outerEl " " } WHERE { FILTER(?OP != "" && !?ae) } .
+    "}\n      "
+    TEMPLATE <templates/positionIterators.rqg>(?mt, CONCAT(?P, "m", STR(?mk)), ?rf) .
+    "  WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?mt, <urn:x-rml2sg:none>, "", CONCAT(?P, "m", STR(?mk)), ?mkind, ?rf, ?dialect, ?mbase) .
+    "BIND(CONCAT(?kp_" ?P ", \"." ?kpad "\""
+    TEMPLATE <templates/positionKey.rqg>(?mt, CONCAT(?P, "m", STR(?mk)), ?rf) .
+    ") AS ?key_" ?P "m" ?mk ") "
+    "BIND(fun:bnode(CONCAT(\"urn:x-rml2sg:el:\", ?hid_" ?P ", \"|\", ?key_" ?P "m" ?mk ")) AS ?e_" ?P "m" ?mk ") } .\n"
+  }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  WHERE {
+    FILTER(!?cartesian)
+    FILTER NOT EXISTS { ?m rmlc:gather ?anon1 }
+    # a referencing object map without join, on the same logical source: the
+    # parent's subject, on the same iteration
+    OPTIONAL { ?m rmlc:parentTriplesMap ?ptm . ?ptm rmlc:subjectMap ?psm }
+    FILTER(!BOUND(?ptm) || NOT EXISTS { ?m rmlc:joinCondition ?jc })
+    BIND(COALESCE(?psm, ?m) AS ?mt)
+    BIND(IF(BOUND(?ptm), "subject", "object") AS ?mkind)
+    BIND(COALESCE(?ptm, <urn:x-rml2sg:none>) AS ?ptmx)
+    OPTIONAL { ?ptmx rmlc:baseIRI ?pb }
+    BIND(COALESCE(STR(?pb), ?base) AS ?mbase)
+    BIND(SUBSTR(STR(1000000000 + ?mk), 2) AS ?kpad)
+  } .
+
+  # rml:append: a referencing object map with a join (or over another
+  # source): a stub with the child keys, from which the elements are joined
+  # with the parent records (templates/gather.rqg)
+  TEMPLATE {
+    "        GENERATE \{ ?x_" ?P "m" ?mk " <urn:x-rml2sg:stub_" ?R "> ?grp_" ?P " ; <urn:x-rml2sg:kpre> ?key_" ?P "m" ?mk " ."
+    TEMPLATE { " ?x_" ?P "m" ?mk " <urn:x-rml2sg:ck_" ?R "_" ?h "> ?" ?P "m" ?mk "k" ?h " ." }
+    ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+    " }\n      "
+    TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?ct, ?cr, CONCAT(?P, "m", STR(?mk), "k", ?h), ?rf, ?dialect) . }
+    ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+    "  WHERE \{ "
+    TEMPLATE { TEMPLATE <templates/termMap.rqg>(?ct, <urn:x-rml2sg:none>, ?cr, CONCAT(?P, "m", STR(?mk), "k", ?h), "key", ?rf, ?dialect, ?base) . }
+    ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+    "BIND(CONCAT(?kp_" ?P ", \"." ?kpad "\") AS ?key_" ?P "m" ?mk ") BIND(BNODE() AS ?x_" ?P "m" ?mk ") } .\n"
+  }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  ITERATOR <iterators/gatherJoins.rqg>(?tm, ?gm, ?base) AS ?jm ?R ?ptm ?prf ?pbase
+  WHERE {
+    FILTER(!?cartesian && ?jm = ?m)
+    BIND(SUBSTR(STR(1000000000 + ?mk), 2) AS ?kpad)
+  } .
+
+  # rml:append: a nested gather map
+  TEMPLATE { TEMPLATE <templates/gatherGroup.rqg>(?tm, ?m, ?pom, CONCAT(?P, "m", STR(?mk)), ?P, ?mk, "nested", <urn:x-rml2sg:none>, ?rf, ?dialect, ?base) . }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  WHERE { FILTER(!?cartesian) ?m rmlc:gather ?anon2 } .
+
+  "      } "
+  # the iterators of a named head, of a graph map, and of the members of a
+  # cartesian product
+  TEMPLATE <templates/referenceIterators.rqg>(?gt, "", CONCAT("gg_", ?P), ?rf, ?dialect) WHERE { FILTER(?gmode = "expression") } .
+  TEMPLATE <templates/referenceIterators.rqg>(?gm, "", CONCAT("h", ?P), ?rf, ?dialect) WHERE { FILTER(?named) } .
+  TEMPLATE { TEMPLATE <templates/positionIterators.rqg>(?m, CONCAT(?P, "m", STR(?mk)), ?rf) . }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  WHERE { FILTER(?cartesian) } .
+  "\n      WHERE \{ "
+  # cartesian product: the terms of the members, and the combination
+  TEMPLATE { TEMPLATE <templates/termMap.rqg>(?m, <urn:x-rml2sg:none>, "", CONCAT(?P, "m", STR(?mk)), "object", ?rf, ?dialect, ?base) . }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  WHERE { FILTER(?cartesian) } .
+  TEMPLATE {
+    "BIND(CONCAT(\"\""
+    TEMPLATE { TEMPLATE <templates/positionKey.rqg>(?m, CONCAT(?P, "m", STR(?mk)), ?rf) . }
+    ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m .
+    ") AS ?combo_" ?P ") "
+  } WHERE { FILTER(?cartesian) } .
+  # the graph (top level)
+  TEMPLATE { "BIND(<urn:x-arq:DefaultGraphNode> AS ?gg_" ?P ") " } WHERE { FILTER(?gmode = "default") } .
+  TEMPLATE { "BIND(<" STR(?gt) "> AS ?gg_" ?P ") " } WHERE { FILTER(?gmode = "constant") } .
+  TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("gg_", ?P), "graph", ?rf, ?dialect, ?base)
+  WHERE { FILTER(?gmode = "expression") } .
+  # the head, and the string that names its group: in a named graph, the
+  # graph too (a blank node head is then one per graph)
+  TEMPLATE {
+    TEMPLATE <templates/termMap.rqg>(?gm, <urn:x-rml2sg:none>, "", CONCAT("h", ?P), "subject", ?rf, ?dialect, ?base) .
+    "BIND(IF(isIRI(?h" ?P "), STR(?h" ?P "), CONCAT(\"_:\", STR(?l_h" ?P "))) AS ?hid0_" ?P ") "
+    "BIND(" ?hidText " AS ?hid_" ?P ") "
+    "BIND(" ?hText " AS ?h_" ?P ") "
+  } WHERE {
+    FILTER(?named)
+    BIND(IF(?gmode IN ("constant", "expression"),
+            CONCAT("IF(isIRI(?h", ?P, "), ?h", ?P, ", fun:bnode(?hid_", ?P, "))"), CONCAT("?h", ?P)) AS ?hText)
+  } .
+  TEMPLATE {
+    "BIND(CONCAT(\"urn:x-rml2sg:" ?gid ":\", " ?idText ") AS ?hid0_" ?P ") "
+    "BIND(" ?hidText " AS ?hid_" ?P ") "
+    "BIND(fun:bnode(?hid_" ?P ") AS ?h_" ?P ") "
+  } WHERE { FILTER(!?named) } .
+  "BIND(fun:bnode(CONCAT(\"urn:x-rml2sg:grp:\", ?hid_" ?P ")) AS ?grp_" ?P ") "
+  "BIND(" ?kpText " AS ?kp_" ?P ") "
+  # the element of the enclosing gather map
+  TEMPLATE {
+    "BIND(CONCAT(?kp_" ?OP ", \"." ?kpadOuter "\") AS ?key_" ?P ") "
+    "BIND(fun:bnode(CONCAT(\"urn:x-rml2sg:el:\", ?hid_" ?OP ", \"|\", ?key_" ?P ")) AS ?e_" ?P ") "
+  } WHERE { FILTER(?OP != "") } .
+  # cartesian product: the keys of the elements
+  TEMPLATE {
+    "BIND(CONCAT(?kp_" ?P ", \"." ?kpad "\") AS ?key_" ?P "m" ?mk ") "
+    "BIND(fun:bnode(CONCAT(\"urn:x-rml2sg:el:\", ?hid_" ?P ", \"|\", ?key_" ?P "m" ?mk ")) AS ?e_" ?P "m" ?mk ") "
+  }
+  ITERATOR <iterators/gatherMembers.rqg>(?gm) AS ?mk ?m
+  WHERE { FILTER(?cartesian) BIND(SUBSTR(STR(1000000000 + ?mk), 2) AS ?kpad) } .
+  "} .\n"
+}
+WHERE {
+  ?gm rmlc:gatherAs ?as .
+  OPTIONAL { ?gm rmlc:allowEmptyListAndContainer ?ae0 }
+  BIND(COALESCE(STR(?ae0) IN ("true", "1"), false) AS ?ae)
+  BIND(IF(?ae, "true", "false") AS ?aeText)
+  OPTIONAL { ?gm rmlc:strategy ?st0 }
+  BIND(COALESCE(?st0 = rmlc:cartesianProduct, false) AS ?cartesian)
+  BIND(EXISTS { ?gm (rmlc:template|rmlc:reference|rmlc:constant) ?anon3 } AS ?named)
+  BIND(MD5(IF(isBlank(?gm), afn:bnode(?gm), STR(?gm))) AS ?gid)
+  BIND(IF(?OP != "", CONCAT("?hid_", ?OP, ", \"/\", ?kp_", ?OP, ", \"/", STR(?k), "\""),
+       IF(?cartesian, CONCAT("?ikey, \":\", ?combo_", ?P), "?ikey")) AS ?idText)
+  BIND(IF(?OP != "", CONCAT("?kp_", ?OP),
+       IF(?cartesian, CONCAT("CONCAT(?ikey, \".\", ?combo_", ?P, ")"), "?ikey")) AS ?kpText)
+  BIND(SUBSTR(STR(1000000000 + ?k), 2) AS ?kpadOuter)
+  BIND(IF(?gmode IN ("constant", "expression"), CONCAT("CONCAT(?hid0_", ?P, ", \"@\", STR(?gg_", ?P, "))"),
+          CONCAT("?hid0_", ?P)) AS ?hidText)
+  BIND(CONCAT("?e_", ?P, " <urn:x-rml2sg:grp> ?grp_", ?OP, " ; <urn:x-rml2sg:key> ?key_", ?P,
+              " ; <urn:x-rml2sg:v> ?h_", ?P, " .") AS ?outerEl)
+}

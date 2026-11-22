@@ -44,12 +44,26 @@ object map).
 | referencing object map with `rr:joinCondition` (`rml:childMap`/`rml:parentMap` too) | the parent is generated once as a graph (`FROM GENERATE`), the join is a basic graph pattern over it; for a CSV child whose subject is a blank node without expression, the join is a sub-query in the child's iteration (the blank node of a row must be the same in both) |
 | `rml:baseIRI` (per triples map) | yes |
 | graph maps: `rr:graphMap`, `rr:graph`, `rml:graphMap`, `rml:graph` (RML-Core), on the subject map (every triple of the triples map, `rr:class` included) and on each predicate-object map; several graph maps: the triple in each; `rr:defaultGraph`: the default graph | the default graph outside `GRAPH` blocks, `GRAPH <g> { ... }` for a constant, `GRAPH ?g { ... }` for a template or a reference (term type IRI), bound once per row (CSV) or in a sub-query of the predicate-object map, one quad per value (JSONPath, XPath); with a join, the graph term is carried from the child's iteration |
+| gather maps (RML-CC, `http://w3id.org/rml/`): `rml:gather`, `rml:gatherAs` (`rdf:List`, `rdf:Bag`, `rdf:Seq`, `rdf:Alt`), `rml:strategy` (`rml:append`, `rml:cartesianProduct`), `rml:allowEmptyListAndContainer`, in a subject map or an object map, nested gather maps, named collections (`rml:template`, `rml:reference`, `rml:constant`, IRI or blank node), members that are referencing object maps, with graph maps | one sub-query per gather map at the top level: a `FROM GENERATE` iterates over the logical source and records each element of each collection with an order key (position of the iteration, member, positions of the values), then the cells (`rdf:first`, `rdf:rest`, `rdf:_n`) are built from the rank of each element in its collection (see below) |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
 triples maps; a SPARQL `BNODE(str)` is fresh for each solution. The generated
 query uses `fun:bnode(str)` (SPARQL-Generate 2.2): the same blank node for the
 same string during one execution, sub-queries included.
+
+Collections and containers (RML-CC). The head of a collection without
+expression is a blank node per iteration (and per combination of values for
+`rml:cartesianProduct`); a named collection has the term of its expression as
+head, and the elements of all the iterations that give the same head, in the same
+graph, form one collection, in the order of the iterations. The rank of an
+element is the number of elements of its collection with a smaller order key:
+building a collection is quadratic in its size. An empty collection is `rdf:nil`, and an
+empty container a node with its type only, when `rml:allowEmptyListAndContainer` is
+true; otherwise neither is generated. Not translated: `rml:cartesianProduct` in a
+nested gather map (its members are appended), a gather map in a predicate map
+or a graph map. A referencing object map among the members, without join
+condition, gives the subject of its parent evaluated on the same iteration.
 
 ## Optimised translation
 
@@ -63,6 +77,11 @@ same distinct triples):
 | R2 | `IRI(?l)` instead of a run-time test for a relative IRI | templates whose constant text starts with a scheme |
 | R3 | the triples maps of one CSV file share one iteration of it: one GENERATE with all their triples, `iter:CSV` over the union of their columns | the same file and reference formulation, each triples map with at least one reference or template, and no blank node map without expression |
 | R4 | CSV files are read in batches of 10 000 rows (a streamed output is written batch by batch) | always: the generated queries have no solution modifier |
+
+Gather maps over a CSV source need SPARQL-Generate 2.4.2 or later: the order of
+the rows is the position that `iter:CSV` gives after the named columns (on an
+earlier version, the iteration has no solution). Over JSONPath and XPath sources, 2.4.0
+is enough.
 
 The translation needs SPARQL-Generate 2.4.0 or later: graph maps are translated into
 `GRAPH` blocks of the `GENERATE` template (quad patterns). The query generated from a
@@ -81,6 +100,12 @@ graph and every named graph (an expected error passes when an error is raised, w
 | RMLio/rml-test-cases@803dd3ec, JSON | 40 | 39 | 1 |
 | RMLio/rml-test-cases@803dd3ec, XML | 38 | 37 | 1 |
 | kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
+| kg-construct/rml-cc@d97fddf, JSON and CSV | 35 | 35 | 0 |
+
+The suites of the RML modules (KG-Construct) were measured on 2.4.1, and on the
+branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT) for what needs it:
+rml-cc passes 33 cases on 2.4.1, and its two CSV cases (referencing object maps
+as members) on the branch (commit `e62ab90`).
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in

@@ -1,0 +1,85 @@
+# The uses of the head ?h_<P> of a gather map (templates/gather.rqg): one
+# sub-query per triple pattern that refers to it, recording in a node ?u its
+# group, the other terms, and its graphs: the graph of the group ?gg_<P>, and
+# for the predicate-object maps of a subject gather map, their own graphs
+# (templates/gatherGraphs.rqg):
+#
+#   an object map of predicate-object map ?pom:  s, p (each predicate map)
+#   the subject map (?pom is <urn:x-rml2sg:none>): p, o for each pair of
+#     predicate map and object map of the triples map (not gather maps nor
+#     referencing object maps), rdf:type and each class, and a use without
+#     triple, which makes an empty container
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/gatherUses.rqg>(?tm, ?pom, ?P, ?rf, ?dialect, ?base) {
+
+  # object: the subject and each predicate
+  TEMPLATE {
+    "        GENERATE \{ ?u <urn:x-rml2sg:grp> ?grp_" ?P " ; <urn:x-rml2sg:s> ?s ; <urn:x-rml2sg:p> ?p ; <urn:x-rml2sg:g> ?gg_" ?P " . }\n          "
+    TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
+    "BIND(BNODE() AS ?u) } .\n"
+  }
+  WHERE {
+    FILTER(?pom != <urn:x-rml2sg:none>)
+    OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm0 }
+    OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc0 }
+    BIND(COALESCE(?sm0, <urn:x-rml2sg:none>) AS ?st)
+    BIND(COALESCE(?sc0, <urn:x-rml2sg:none>) AS ?sc)
+    { ?pom (rr:predicateMap|rmlc:predicateMap) ?pm0 } UNION { ?pom (rr:predicate|rmlc:predicate) ?pc0 }
+    BIND(COALESCE(?pm0, <urn:x-rml2sg:none>) AS ?pt)
+    BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
+  } .
+
+  # subject: each pair of predicate and object of the triples map
+  TEMPLATE {
+    "        GENERATE \{ ?u <urn:x-rml2sg:grp> ?grp_" ?P " ; <urn:x-rml2sg:p> ?p ; <urn:x-rml2sg:o> ?o . "
+    TEMPLATE <templates/gatherGraphs.rqg>(?sm, ?pom2, ?rf, ?dialect, ?base) .
+    "}\n          "
+    TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?ot, "", "o", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?olm, "", "olang", ?rf, ?dialect) WHERE { ?ot rmlc:languageMap ?olm } .
+    TEMPLATE <templates/referenceIterators.rqg>(?odm, "", "odt", ?rf, ?dialect) WHERE { ?ot rmlc:datatypeMap ?odm } .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", "o", "object", ?rf, ?dialect, ?base) .
+    "BIND(BNODE() AS ?u) } .\n"
+  }
+  WHERE {
+    FILTER(?pom = <urn:x-rml2sg:none>)
+    ?tm (rr:subjectMap|rmlc:subjectMap) ?sm .
+    ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap) ?pom2 .
+    { ?pom2 (rr:predicateMap|rmlc:predicateMap) ?pm0 } UNION { ?pom2 (rr:predicate|rmlc:predicate) ?pc0 }
+    { ?pom2 (rr:objectMap|rmlc:objectMap) ?om0
+      FILTER NOT EXISTS { ?om0 (rmlc:gather|rr:parentTriplesMap|rmlc:parentTriplesMap) ?anon1 } }
+    UNION { ?pom2 (rr:object|rmlc:object) ?oc0 }
+    BIND(COALESCE(?pm0, <urn:x-rml2sg:none>) AS ?pt)
+    BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
+    BIND(COALESCE(?om0, <urn:x-rml2sg:none>) AS ?ot)
+    BIND(COALESCE(?oc0, <urn:x-rml2sg:none>) AS ?oc)
+  } .
+
+  # subject: the classes
+  TEMPLATE {
+    "        GENERATE \{ ?u <urn:x-rml2sg:grp> ?grp_" ?P " ; <urn:x-rml2sg:p> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ; <urn:x-rml2sg:o> <" STR(?class) "> ; <urn:x-rml2sg:g> ?gg_" ?P " . } WHERE \{ BIND(BNODE() AS ?u) } .\n"
+  }
+  WHERE {
+    FILTER(?pom = <urn:x-rml2sg:none>)
+    ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
+  } .
+
+  # subject: the graphs of the cells
+  TEMPLATE {
+    "        GENERATE \{ ?u <urn:x-rml2sg:grp> ?grp_" ?P " ; <urn:x-rml2sg:g> ?gg_" ?P " . } WHERE \{ BIND(BNODE() AS ?u) } .\n"
+  }
+  WHERE {
+    FILTER(?pom = <urn:x-rml2sg:none>)
+    ?tm (rr:subjectMap|rmlc:subjectMap) ?sm .
+  } .
+}
+WHERE { }

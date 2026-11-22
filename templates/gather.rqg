@@ -1,0 +1,149 @@
+# The translation of gather map ?gm (RML-CC: rml:gather, rml:gatherAs,
+# rml:strategy, rml:allowEmptyListAndContainer): the subject map of triples
+# map ?tm (?pom is <urn:x-rml2sg:none>), or an object map of its
+# predicate-object map ?pom. One sub-query at the top level of the generated
+# query, in two steps.
+#
+# 1. FROM GENERATE: an iteration over the logical source of ?tm, with the
+#    position of each iteration (?ikey, 9 digits: the position output of
+#    iter:JSONPath, iter:XPath, and of iter:CSV with named columns,
+#    SPARQL-Generate 2.4.2), writes
+#    records, nodes with properties in the urn:x-rml2sg: namespace:
+#      a group per collection or container (templates/gatherGroup.rqg):
+#        h, its head node; hid, a string that names it; as, its class
+#        (rdf:List, rdf:Bag, rdf:Seq, rdf:Alt); ae, rml:allowEmptyListAndContainer;
+#        in, the group of the enclosing gather map (nested gather maps); g, its
+#        graph (<urn:x-arq:DefaultGraphNode> for the default graph);
+#      an element per gathered term: grp, its group; key, a string whose
+#        order is the order of the elements (iteration, member of the gather
+#        map, positions of the values of its references); v, the term;
+#      a use per triple whose subject or object is the head
+#        (templates/gatherUses.rqg): grp; s, p or p, o, the other terms; g,
+#        its graph.
+# 2. WHERE: the triples, from the records. A use gives its triple when its
+#    group has elements, or when empty collections are allowed (rdf:nil for an
+#    empty list). The rank r of an element is the number of elements of its
+#    group with a smaller key: a list has one cell per element, the head for
+#    r = 0, fun:bnode(<hid>#<r>) otherwise, with rdf:first and rdf:rest; a
+#    container has the member rdf:_<r+1>. The cells are in the graph of the
+#    group (of the outermost group for a nested gather map): there is one
+#    group per target graph of the head.
+#
+# A collection without expression has a blank node head per iteration (and
+# per combination of values, rml:cartesianProduct): fun:bnode of a string made
+# of the gather map and the iteration. A named collection (rml:template,
+# rml:reference, rml:constant) has the term of its expression as head: the
+# elements of all the iterations that give the same head are one collection,
+# in the order of the iterations. Ranking is quadratic in the size of a
+# collection.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+TEMPLATE <templates/gather.rqg>(?tm, ?gm, ?pom, ?rf, ?dialect, ?base) {
+  "\n  # gather map, " ?roleText " of triples map " ?tmText "\n"
+  "  GENERATE \{\n"
+  "    GRAPH ?ug \{ ?ts ?tp ?to . ?uc a ?as . }\n"
+  "    GRAPH ?cg \{ ?cell <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> ?v . ?cell <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> ?next . ?ch a ?cas ; ?mem ?v . }\n"
+  "  }\n"
+  "  FROM GENERATE \{\n"
+  # joins of referencing object maps: a second step adds their elements
+  TEMPLATE {
+    "   GENERATE \{ ?a ?b ?c . ?e <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:key> ?key ; <urn:x-rml2sg:v> ?v . }\n"
+    "   FROM GENERATE \{\n"
+  } WHERE { FILTER(?joins) } .
+  "    GENERATE \{\n"
+  # one group per target graph of the head (subject map, and predicate-object map ?pom):
+  # a named collection is one collection per graph
+  TEMPLATE <templates/gatherGroup.rqg>(?tm, ?gm, ?pom, "a", "", 0, "default", <urn:x-rml2sg:none>, ?rf, ?dialect, ?base)
+  WHERE {
+    FILTER((NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 }
+            && NOT EXISTS { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 })
+        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg1
+                    FILTER(?dg1 IN (rr:defaultGraph, rmlc:defaultGraph)) }
+        || EXISTS { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg2
+                    FILTER(?dg2 IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  } .
+  TEMPLATE { TEMPLATE <templates/gatherGroup.rqg>(?tm, ?gm, ?pom, "a", "", 0, "constant", ?gc, ?rf, ?dialect, ?base) . }
+  WHERE {
+    { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gc }
+    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gc }
+    FILTER(isIRI(?gc) && !(?gc IN (rr:defaultGraph, rmlc:defaultGraph)))
+  } GROUP BY ?gc ?tm ?gm ?pom ?rf ?dialect ?base .
+  TEMPLATE { TEMPLATE <templates/gatherGroup.rqg>(?tm, ?gm, ?pom, "a", "", 0, "expression", ?gt, ?rf, ?dialect, ?base) . }
+  WHERE {
+    { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+  } GROUP BY ?gt ?tm ?gm ?pom ?rf ?dialect ?base .
+  "    }\n    "
+  TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
+  " ?ipos\n    WHERE \{ BIND(SUBSTR(STR(1000000000 + ?ipos), 2) AS ?ikey) } .\n"
+  # the parent records of the joins
+  TEMPLATE {
+    "    GENERATE \{ ?r <urn:x-rml2sg:parent_" ?R "> ?o ; <urn:x-rml2sg:pkey> ?pikey ."
+    TEMPLATE { " ?r <urn:x-rml2sg:pk_" ?R "_" ?h "> ?q" ?h " ." }
+    ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+    " }\n    "
+    TEMPLATE <templates/iteration.rqg>(?ptm, "parent", <urn:x-rml2sg:none>, ?m, ?prf) .
+    " ?ipos\n      "
+    TEMPLATE <templates/referenceIterators.rqg>(?psm, "", "o", ?prf, ?dialect) .
+    TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("q", ?h), ?prf, ?dialect) . }
+    ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+    "WHERE \{ BIND(SUBSTR(STR(1000000000 + ?ipos), 2) AS ?pikey) "
+    TEMPLATE <templates/termMap.rqg>(?psm, <urn:x-rml2sg:none>, "", "o", "subject", ?prf, ?dialect, ?pbase) .
+    TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("q", ?h), "key", ?prf, ?dialect, ?pbase) . }
+    ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+    "BIND(BNODE() AS ?r) } .\n"
+  }
+  ITERATOR <iterators/gatherJoins.rqg>(?tm, ?gm, ?base) AS ?m ?R ?ptm ?prf ?pbase
+  WHERE {
+    ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm .
+  } .
+  "  } .\n"
+  TEMPLATE {
+    "   WHERE \{ \{ ?a ?b ?c }"
+    TEMPLATE {
+      " UNION \{ ?x <urn:x-rml2sg:stub_" ?R "> ?grp ; <urn:x-rml2sg:kpre> ?kpre ."
+      TEMPLATE { " ?x <urn:x-rml2sg:ck_" ?R "_" ?h "> ?j" ?h " . ?r <urn:x-rml2sg:pk_" ?R "_" ?h "> ?j" ?h " ." }
+      ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
+      " ?r <urn:x-rml2sg:parent_" ?R "> ?v ; <urn:x-rml2sg:pkey> ?pk . ?grp <urn:x-rml2sg:hid> ?hid ."
+      " BIND(CONCAT(?kpre, \".\", ?pk) AS ?key) BIND(fun:bnode(CONCAT(\"urn:x-rml2sg:el:\", ?hid, \"|\", ?key)) AS ?e) }"
+    }
+    ITERATOR <iterators/gatherJoins.rqg>(?tm, ?gm, ?base) AS ?m ?R ?ptm ?prf ?pbase .
+    " } .\n  } .\n"
+  } WHERE { FILTER(?joins) } .
+  "  WHERE \{\n"
+  "    \{\n"
+  "      ?u <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:g> ?ug .\n"
+  "      ?grp <urn:x-rml2sg:h> ?h0 ; <urn:x-rml2sg:as> ?as ; <urn:x-rml2sg:ae> ?ae .\n"
+  "      OPTIONAL \{ ?u <urn:x-rml2sg:s> ?s0 } OPTIONAL \{ ?u <urn:x-rml2sg:p> ?tp } OPTIONAL \{ ?u <urn:x-rml2sg:o> ?o0 }\n"
+  "      OPTIONAL \{ SELECT ?grp (COUNT(?e) AS ?n0) WHERE \{ ?e <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:v> ?v0 } GROUP BY ?grp }\n"
+  "      BIND(COALESCE(?n0, 0) AS ?n)\n"
+  "      FILTER(?n > 0 || ?ae)\n"
+  "      BIND(IF(?n = 0 && ?as = <http://www.w3.org/1999/02/22-rdf-syntax-ns#List>, <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>, ?h0) AS ?h)\n"
+  "      BIND(COALESCE(?s0, ?h) AS ?ts)\n"
+  "      BIND(IF(BOUND(?s0), ?h, ?o0) AS ?to)\n"
+  "      BIND(IF(?as != <http://www.w3.org/1999/02/22-rdf-syntax-ns#List>, ?h, ?none) AS ?uc)\n"
+  "    } UNION \{\n"
+  "      ?e <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:key> ?key ; <urn:x-rml2sg:v> ?v .\n"
+  "      ?grp <urn:x-rml2sg:h> ?h ; <urn:x-rml2sg:hid> ?hid ; <urn:x-rml2sg:as> ?cas .\n"
+  "      \{ SELECT ?grp (COUNT(?e3) AS ?n) WHERE \{ ?e3 <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:v> ?v3 } GROUP BY ?grp }\n"
+  "      \{ SELECT ?e (COUNT(?e2) AS ?r) WHERE \{ ?e <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:key> ?key ; <urn:x-rml2sg:v> ?v1 .\n"
+  "          OPTIONAL \{ ?e2 <urn:x-rml2sg:grp> ?grp ; <urn:x-rml2sg:key> ?k2 ; <urn:x-rml2sg:v> ?v2 FILTER(?k2 < ?key) } } GROUP BY ?e }\n"
+  "      ?grp <urn:x-rml2sg:in>* ?top . ?top <urn:x-rml2sg:g> ?cg .\n"
+  "      BIND(?cas = <http://www.w3.org/1999/02/22-rdf-syntax-ns#List> AS ?list)\n"
+  "      BIND(IF(?list, IF(?r = 0, ?h, fun:bnode(CONCAT(\"urn:x-rml2sg:cell:\", ?hid, \"#\", STR(?r)))), ?none) AS ?cell)\n"
+  "      BIND(IF(?list, IF(?r + 1 = ?n, <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>, fun:bnode(CONCAT(\"urn:x-rml2sg:cell:\", ?hid, \"#\", STR(?r + 1)))), ?none) AS ?next)\n"
+  "      BIND(IF(?list, ?none, ?h) AS ?ch)\n"
+  "      BIND(IF(?list, ?none, IRI(CONCAT(\"http://www.w3.org/1999/02/22-rdf-syntax-ns#_\", STR(?r + 1)))) AS ?mem)\n"
+  "    }\n"
+  "  } .\n"
+}
+WHERE {
+  OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm0 }
+  BIND(COALESCE(?sm0, <urn:x-rml2sg:none>) AS ?sm)
+  BIND(IF(isIRI(?tm), CONCAT("<", STR(?tm), ">"), "[]") AS ?tmText)
+  BIND(IF(?pom = <urn:x-rml2sg:none>, "the subject map", "an object map") AS ?roleText)
+  BIND(EXISTS { ?gm (rmlc:gather/rdf:rest*/rdf:first)+ ?jm . ?jm rmlc:parentTriplesMap ?anon1 ; rmlc:joinCondition ?anon2 } AS ?joins)
+}

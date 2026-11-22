@@ -16,6 +16,9 @@ WHERE {
   ?tm (rml:logicalSource|rmlc:logicalSource)/(rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
   BIND(REPLACE(STR(?rfi), "^.*[#/]", "") AS ?rf)
   FILTER(?rf IN ("CSV", "JSONPath", "XPath"))
+  # a subject map that is a gather map: the triples map is translated by
+  # templates/gather.rqg
+  FILTER NOT EXISTS { ?tm rmlc:subjectMap/rmlc:gather ?anyg }
   OPTIONAL { ?tm rmlc:baseIRI ?b }
   BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
   OPTIONAL {

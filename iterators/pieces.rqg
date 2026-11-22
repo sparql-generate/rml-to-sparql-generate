@@ -14,6 +14,7 @@
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 SELECT <iterators/pieces.rqg>(?scope, ?tm, ?pom, ?om)
        (GROUP_CONCAT(?piece; separator="") AS ?all)
@@ -33,6 +34,13 @@ WHERE {
         UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap) ?t }
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rmlc:languageMap|rmlc:datatypeMap) ?t }
+        # the members of gather maps (RML-CC), nested ones included
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+ ?t }
+        # their referencing object maps: the parent's subject (no join), the child keys
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+ ?grom .
+                ?grom rmlc:parentTriplesMap/rmlc:subjectMap ?t .
+                FILTER NOT EXISTS { ?grom rmlc:joinCondition ?anon5 } }
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+/rmlc:joinCondition/rmlc:childMap ?t }
         UNION {
           ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?rom .
           ?rom (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
@@ -91,6 +99,9 @@ WHERE {
     } UNION {
       BIND("parent" AS ?scope)
       ?om (rr:joinCondition|rmlc:joinCondition)/(rr:parent|rmlc:parent) ?r
+    } UNION {
+      BIND("tm" AS ?scope)
+      ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+/rmlc:joinCondition/rmlc:child ?r
     }
   }
   BIND(COALESCE(STR(?tpl), CONCAT("\{", REPLACE(STR(?r), "([\\\\\{}])", "\\\\$1"), "}")) AS ?piece)

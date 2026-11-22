@@ -1,0 +1,9 @@
+# The positions of the values of the references of term map ?t in role ?role
+# (templates/positionIterators.rqg), as the text of string expressions
+# ", ".", <position padded to 9 digits>" ...: appended to the key of an element of a
+# gather map, they order the values of one member (templates/gather.rqg).
+TEMPLATE <templates/positionKey.rqg>(?t, ?role, ?rf) {
+  TEMPLATE { ", \".\", SUBSTR(STR(1000000000 + ?" ?role "_pos" MD5(?r) "), 2)" }
+  ITERATOR <iterators/references.rqg>("term", ?t, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r .
+}
+WHERE { FILTER(?rf != "CSV") }

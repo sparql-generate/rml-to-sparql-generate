@@ -1,0 +1,15 @@
+# The members of gather map ?gm (RML-CC, rml:gather): ?k, the position of the
+# term map ?m in the list (1, 2, ...), in the order of the list
+# (templates/gather.rqg).
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT <iterators/gatherMembers.rqg>(?gm) (COUNT(?mid) AS ?k) ?m
+WHERE {
+  ?gm rmlc:gather ?l .
+  ?l rdf:rest* ?mid .
+  ?mid rdf:rest* ?cell .
+  ?cell rdf:first ?m .
+}
+GROUP BY ?cell ?m
+ORDER BY ?k
