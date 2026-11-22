@@ -121,11 +121,16 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   WHERE { FILTER(?rf = "CSV") } .
 
   "  }\n  "
+  # star maps with a join (RML-star): the records of their quoted triples maps
+  TEMPLATE <templates/starJoins.rqg>(?tm, "graphs", ?rf, ?dialect, ?base) WHERE { FILTER(?rf = "CSV") } .
   TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
 
   # CSV: the terms are bound in the WHERE clause of the triples map, which the
   # engine evaluates once per batch of rows
   TEMPLATE { "\n  WHERE \{" } WHERE { FILTER(?rf = "CSV") } .
+  # star maps with a join (RML-star)
+  TEMPLATE { "\n  " TEMPLATE <templates/starJoins.rqg>(?tm, "patterns", ?rf, ?dialect, ?base) . }
+  WHERE { FILTER(?rf = "CSV") } .
   # a logical view (RML-LV): its joins
   TEMPLATE { TEMPLATE <templates/viewJoins.rqg>(?lsv, "patterns") . }
   WHERE { FILTER(?rf = "CSV") ?tm rmlc:logicalSource ?lsv . ?lsv rmlc:viewOn ?anyv } .

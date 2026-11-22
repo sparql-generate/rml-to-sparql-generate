@@ -27,6 +27,8 @@ WHERE {
   # a subject map that is a gather map: the triples map is translated by
   # templates/gather.rqg
   FILTER NOT EXISTS { ?tm rmlc:subjectMap/rmlc:gather ?anyg }
+  # RML-star: the triples of a non-asserted triples map are only quoted
+  FILTER NOT EXISTS { ?tm a rmlc:NonAssertedTriplesMap }
   OPTIONAL { ?tm rmlc:baseIRI ?b }
   BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
   OPTIONAL {
@@ -46,6 +48,8 @@ WHERE {
           UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?u }
           ?u (rr:termType|rmlc:termType) ?tt . FILTER(?tt IN (rr:BlankNode, rmlc:BlankNode))
           FILTER NOT EXISTS { ?u (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon2 } }
+        # star maps with a join (RML-star): translated alone (templates/starJoins.rqg)
+        FILTER NOT EXISTS { ?tm (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap)/rmlc:joinCondition ?anon5 }
       } }
     { SELECT ?src WHERE {
         ?tm2 (rml:logicalSource|rmlc:logicalSource) ?ls2 .
@@ -63,6 +67,7 @@ WHERE {
           UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?u2 }
           ?u2 (rr:termType|rmlc:termType) ?tt2 . FILTER(?tt2 IN (rr:BlankNode, rmlc:BlankNode))
           FILTER NOT EXISTS { ?u2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 } }
+        FILTER NOT EXISTS { ?tm2 (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap)/rmlc:joinCondition ?anon6 }
       } GROUP BY ?src HAVING (COUNT(DISTINCT ?tm2) > 1) }
   }
   BIND(COALESCE(?src, "") AS ?group)

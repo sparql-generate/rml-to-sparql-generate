@@ -66,6 +66,11 @@ TEMPLATE <templates/checks.rqg>(?dialect) {
           FILTER(!(?what IN ("CSV", "JSONPath", "XPath")))
           FILTER NOT EXISTS { ?ls rmlc:viewOn ?anon13 } } .
 
+  # RML-star: a star map is a subject map or an object map
+  TEMPLATE { "#ERROR: rml:quotedTriplesMap outside a subject map or an object map\n" }
+  WHERE { ?x rmlc:quotedTriplesMap ?anon15 .
+          FILTER NOT EXISTS { ?anon16 (rmlc:subjectMap|rmlc:objectMap) ?x } } LIMIT 1 .
+
   # RML-LV: cycles, name collisions, references to keys that a logical view
   # does not have (iterators/viewKeys.rqg)
   TEMPLATE { "#ERROR: a logical view or a field depends on itself\n" }

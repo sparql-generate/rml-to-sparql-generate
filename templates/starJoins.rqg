@@ -1,0 +1,59 @@
+# The star maps of triples map ?tm (RML-star: rml:quotedTriplesMap) with a
+# join condition, in the iteration of ?tm (CSV sources: templates/iteration.rqg,
+# templates/triplesMap.rqg):
+#
+#   ?part = "graphs"    FROM GENERATE { ... }: per star map X, a record per
+#                       iteration of its quoted triples map Q: the parent side
+#                       of each join condition, and the quoted triple
+#                       (templates/quoted.rqg)
+#   ?part = "patterns"  in the WHERE clause: the child side of each join
+#                       condition, then the records with equal keys, whose
+#                       quoted triple is the term of X, ?qt_<X>
+#                       (templates/termMap.rqg)
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/starJoins.rqg>(?tm, ?part, ?rf, ?dialect, ?base) {
+  TEMPLATE {
+    "FROM GENERATE \{\n"
+    TEMPLATE {
+      "    GENERATE \{ ?r <urn:x-rml2sg:qt_" ?X "> ?o ."
+      TEMPLATE { " ?r <urn:x-rml2sg:qk_" ?X "_" ?h "> ?q" ?h " ." }
+      ITERATOR <iterators/joinConditions.rqg>(?x) AS ?h ?ct ?cr ?jt ?jr .
+      " }\n    "
+      TEMPLATE <templates/starJoins.rqg>(?qtm, "graphs", ?qrf, ?dialect, ?base) .
+      TEMPLATE <templates/iteration.rqg>(?qtm, "parent", <urn:x-rml2sg:none>, ?x, ?qrf) .
+      "\n    WHERE \{ "
+      TEMPLATE <templates/starJoins.rqg>(?qtm, "patterns", ?qrf, ?dialect, ?base) .
+      TEMPLATE <templates/quoted.rqg>(?qtm, "o", ?qrf, ?dialect, ?base) .
+      TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("q", ?h), "key", ?qrf, ?dialect, ?base) . }
+      ITERATOR <iterators/joinConditions.rqg>(?x) AS ?h ?ct ?cr ?jt ?jr .
+      "BIND(BNODE() AS ?r) } .\n"
+    }
+    WHERE {
+      ?x rmlc:quotedTriplesMap ?qtm ; rmlc:joinCondition ?anon1 .
+      ?qtm rmlc:logicalSource/rmlc:referenceFormulation ?qrfi .
+      BIND(REPLACE(STR(?qrfi), "^.*[#/]", "") AS ?qrf)
+      BIND(MD5(IF(isBlank(?x), afn:bnode(?x), STR(?x))) AS ?X)
+    } GROUP BY ?x ?qtm ?qrf ?X ?dialect ?base .
+    "  } .\n  "
+  } WHERE { FILTER(?part = "graphs" && ?stars) } .
+
+  TEMPLATE {
+    TEMPLATE {
+      TEMPLATE <templates/termMap.rqg>(?ct, <urn:x-rml2sg:none>, ?cr, CONCAT("qx", ?X, "_", ?h), "key", ?rf, ?dialect, ?base) .
+      "?qr" ?X " <urn:x-rml2sg:qk_" ?X "_" ?h "> ?qy" ?X "_" ?h " . FILTER(?qy" ?X "_" ?h " = ?qx" ?X "_" ?h ") "
+    }
+    ITERATOR <iterators/joinConditions.rqg>(?x) AS ?h ?ct ?cr ?jt ?jr .
+    "?qr" ?X " <urn:x-rml2sg:qt_" ?X "> ?qt_" ?X " . "
+  }
+  WHERE {
+    FILTER(?part = "patterns")
+    ?x rmlc:quotedTriplesMap ?qtm ; rmlc:joinCondition ?anon2 .
+    FILTER EXISTS { ?tm (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap) ?x }
+    BIND(MD5(IF(isBlank(?x), afn:bnode(?x), STR(?x))) AS ?X)
+  } GROUP BY ?x ?X ?tm ?part ?rf ?dialect ?base .
+}
+WHERE {
+  BIND(EXISTS { ?tm (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap) ?sx . ?sx rmlc:quotedTriplesMap ?anon3 ; rmlc:joinCondition ?anon4 } AS ?stars)
+}

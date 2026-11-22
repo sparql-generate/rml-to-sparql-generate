@@ -34,6 +34,13 @@ WHERE {
         UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap) ?t }
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rmlc:languageMap|rmlc:datatypeMap) ?t }
+        # the term maps of the triples maps quoted by star maps (RML-star), on
+        # the same iteration (without join), the child keys of the others
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)) ?sx0 .
+                FILTER NOT EXISTS { ?sx0 rmlc:joinCondition ?anon6 }
+                ?sx0 (rmlc:quotedTriplesMap/(rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap)))+ ?t }
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)) ?sjx .
+                ?sjx rmlc:quotedTriplesMap ?anon7 ; rmlc:joinCondition/rmlc:childMap ?t }
         # the members of gather maps (RML-CC), nested ones included
         UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+ ?t }
         # their referencing object maps: the parent's subject (no join), the child keys
@@ -81,6 +88,8 @@ WHERE {
         BIND("parent" AS ?scope)
         { ?om (rr:parentTriplesMap|rmlc:parentTriplesMap)/(rr:subjectMap|rmlc:subjectMap) ?t }
         UNION { ?om (rr:joinCondition|rmlc:joinCondition)/rmlc:parentMap ?t }
+        # a star map with a join (RML-star): the term maps of its quoted triples map
+        UNION { ?om rmlc:quotedTriplesMap/((rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap))/rmlc:quotedTriplesMap)*/(rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap)) ?t }
       }
     }
     # the term map, and the input value maps of its functions and conditions
@@ -105,6 +114,10 @@ WHERE {
     } UNION {
       BIND("tm" AS ?scope)
       ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+/rmlc:joinCondition/rmlc:child ?r
+    } UNION {
+      BIND("tm" AS ?scope)
+      ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)) ?sjr .
+      ?sjr rmlc:quotedTriplesMap ?anon8 ; rmlc:joinCondition/rmlc:child ?r
     }
   }
   BIND(COALESCE(STR(?tpl), CONCAT("\{", REPLACE(STR(?r), "([\\\\\{}])", "\\\\$1"), "}")) AS ?piece)

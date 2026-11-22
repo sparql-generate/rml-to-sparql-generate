@@ -38,8 +38,11 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap) ?t }
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rmlc:languageMap|rmlc:datatypeMap) ?t }
         UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:parentTriplesMap|rmlc:parentTriplesMap)/(rr:subjectMap|rmlc:subjectMap) ?t }
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:quotedTriplesMap/(rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap)))+ ?t }
+        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/rmlc:joinCondition/rmlc:childMap ?t }
         ?t (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)*/(rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?x
       }
+      FILTER NOT EXISTS { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/rmlc:joinCondition/rmlc:child ?y }
     } .
   } WHERE { FILTER(?rf = "CSV" && !?view) } .
 

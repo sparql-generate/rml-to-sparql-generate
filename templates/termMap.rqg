@@ -62,6 +62,13 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
   TEMPLATE { "BIND(" TEMPLATE <templates/valueExpr.rqg>(?cond, ?role, ?rf, ?dialect, ?base) . " AS ?cond_" ?role ") " }
   WHERE { FILTER(BOUND(?cond)) } .
 
+  # a star map (RML-star, rml:quotedTriplesMap): the quoted triple, of the same
+  # iteration (templates/quoted.rqg), or joined (templates/starJoins.rqg)
+  TEMPLATE <templates/quoted.rqg>(?qtm, ?role, ?rf, ?dialect, ?base)
+  WHERE { FILTER(BOUND(?qtm) && !?qjoin) } .
+  TEMPLATE { "BIND(?qt_" ?X " AS ?" ?role ") " }
+  WHERE { FILTER(BOUND(?qtm) && ?qjoin) BIND(MD5(IF(isBlank(?t), afn:bnode(?t), STR(?t))) AS ?X) } .
+
   # language and datatype maps (RML-Core): their own terms, bound first
   TEMPLATE <templates/termMap.rqg>(?lm, <urn:x-rml2sg:none>, "", CONCAT(?role, "lang"), "language", ?rf, ?dialect, ?base)
   WHERE { FILTER(BOUND(?lm)) } .
@@ -108,6 +115,8 @@ WHERE {
   BIND(STR(?tpl0) AS ?tpl)
   OPTIONAL { ?t rmlc:functionExecution ?fe }
   OPTIONAL { ?t rmlc:condition ?cond }
+  OPTIONAL { ?t rmlc:quotedTriplesMap ?qtm }
+  BIND(EXISTS { ?t rmlc:joinCondition ?anyqj } AS ?qjoin)
   OPTIONAL { ?t (rr:termType|rmlc:termType) ?tt0 }
   OPTIONAL { ?t (rr:language|rmlc:language) ?lang }
   OPTIONAL { ?t rmlc:languageMap ?lm }

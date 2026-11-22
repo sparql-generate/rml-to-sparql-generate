@@ -48,6 +48,7 @@ object map).
 | function-valued term maps (RML-FNML): `rml:functionExecution`, `rml:function` or `rml:functionMap`, `rml:input` with `rml:parameter` or `rml:parameterMap`, `rml:inputValue` or `rml:inputValueMap` (reference, template, constant, function: composition), `rml:return` or `rml:returnMap`; in any term map, language and datatype maps included; `rml:condition` | the SPARQL expression of the function (see below), in place of the lexical form of the term map; a condition gives the term only when it is true |
 | a triples map without logical source, of constant term maps (RML-FNML) | a sub-query without iterator, evaluated once |
 | logical views (RML-LV): `rml:LogicalView`, `rml:viewOn` (a logical source or another view), `rml:field` (`rml:ExpressionField` with `rml:reference`, `rml:template` or `rml:constant`; `rml:IterableField` with `rml:iterator`; nested fields, `rml:referenceFormulation` to change formulation: JSON in CSV, CSV in JSON), the index keys `#` and `<field>.#`, `rml:leftJoin` and `rml:innerJoin` (`rml:parentLogicalView`, `rml:joinCondition` with `rml:child`/`rml:parent` or `rml:childMap`/`rml:parentMap`, joined fields) | the iteration of the view as binding clauses: one iterator per field, nested over the records of its parent (one solution per logical view iteration), each key bound to a variable that the term maps read as a CSV column; a join is a `FROM GENERATE` of the parent view's iterations, matched in the `WHERE` clause (`OPTIONAL` for a left join) |
+| RML-star: `rml:quotedTriplesMap` in a subject map or an object map (star maps), on the same logical source or with `rml:joinCondition`, nested quoted triples, `rml:AssertedTriplesMap`, `rml:NonAssertedTriplesMap` | the triple term `afn:triple(s, p, o)` (Jena, RDF 1.2) of the terms of the quoted triples map on the same iteration; with a join, a `FROM GENERATE` of the quoted triples of the other source, matched in the `WHERE` clause; a non-asserted triples map generates no triple of its own |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
@@ -103,6 +104,14 @@ same name, and a reference to a key that the view does not have (or to an iterab
 field, or to `<it>`) are `#ERROR` lines. The joins of a view that is itself the
 source of another view, or the parent of a join, are not translated.
 
+RML-star. The quoted triples map has one predicate-object map, with one
+predicate and one object. Star maps are translated over CSV sources (the
+references of the quoted triples map are columns of the same row, or of the
+joined row); over JSONPath and XPath sources, only constant quoted triples
+maps. The output writes triple terms in the RDF 1.2 syntax of Jena,
+`<<( s p o )>>`, in subject position too (RDF-star quoted triples, `<< s p o >>`).
+A `rml:quotedTriplesMap` outside a subject map or an object map is an `#ERROR`.
+
 ## Optimised translation
 
 The generated query is the direct translation, followed by mechanical rewritings; each is exact (the same output up to isomorphism), and is checked
@@ -141,6 +150,7 @@ graph and every named graph (an expected error passes when an error is raised, w
 | kg-construct/rml-cc@d97fddf, JSON and CSV | 35 | 35 | 0 |
 | kg-construct/rml-fnml@f573f79, CSV | 22 | 21 | 1 |
 | kg-construct/rml-lv@94beb94, JSON and CSV | 41 | 40 | 1 |
+| kg-construct/rml-star@711f72e, CSV | 18 | 10 | 8 |
 
 The suites of the RML modules (KG-Construct) were measured on 2.4.1, and on the
 branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT) for what needs it:
@@ -150,6 +160,9 @@ reference to a column that the CSV file does not have, an error that the
 generated query does not raise (as RML-Core 0002c). rml-lv passes 36 cases on
 2.4.1, 40 on the branch (the index key `#` of CSV sources); the failure is an
 inner join with a parent iteration whose field has no value (0010b).
+rml-star is compared after writing `<<( ... )>>` as `<< ... >>`; its 8 failures
+are the "two sources" cases, whose second CSV file starts with a line
+`**Input 1**` before the header: with that line removed, they pass.
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in

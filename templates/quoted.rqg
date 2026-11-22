@@ -1,0 +1,32 @@
+# The BIND clauses of the quoted triple of triples map ?qtm (RML-star,
+# rml:quotedTriplesMap), in role ?role: the terms of its subject map, of the
+# predicate map and object map of its predicate-object map (roles <role>s,
+# <role>p, <role>o, templates/termMap.rqg; a star map among them is quoted in
+# turn), then ?<role> = afn:triple(...), an RDF 1.2 triple term. The quoted
+# triples map has one predicate-object map with one predicate and one object.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/quoted.rqg>(?qtm, ?role, ?rf, ?dialect, ?base) {
+  TEMPLATE <templates/termMap.rqg>(?qst, ?qsc, "", CONCAT(?role, "s"), "subject", ?rf, ?dialect, ?qbase) .
+  TEMPLATE <templates/termMap.rqg>(?qpt, ?qpc, "", CONCAT(?role, "p"), "predicate", ?rf, ?dialect, ?qbase) .
+  TEMPLATE <templates/termMap.rqg>(?qot, ?qoc, "", CONCAT(?role, "o"), "object", ?rf, ?dialect, ?qbase) .
+  "BIND(<http://jena.apache.org/ARQ/function#triple>(?" ?role "s, ?" ?role "p, ?" ?role "o) AS ?" ?role ") "
+}
+WHERE {
+  OPTIONAL { ?qtm (rr:subjectMap|rmlc:subjectMap) ?qsm0 }
+  OPTIONAL { ?qtm (rr:subject|rmlc:subject) ?qsc0 }
+  BIND(COALESCE(?qsm0, <urn:x-rml2sg:none>) AS ?qst)
+  BIND(COALESCE(?qsc0, <urn:x-rml2sg:none>) AS ?qsc)
+  { SELECT ?qtm (SAMPLE(?pom0) AS ?qpom) WHERE { ?qtm rmlc:predicateObjectMap ?pom0 } GROUP BY ?qtm }
+  OPTIONAL { ?qpom rmlc:predicateMap ?qpm0 }
+  OPTIONAL { ?qpom rmlc:predicate ?qpc0 }
+  OPTIONAL { ?qpom rmlc:objectMap ?qom0 }
+  OPTIONAL { ?qpom rmlc:object ?qoc0 }
+  BIND(COALESCE(?qpm0, <urn:x-rml2sg:none>) AS ?qpt)
+  BIND(COALESCE(?qpc0, <urn:x-rml2sg:none>) AS ?qpc)
+  BIND(COALESCE(?qom0, <urn:x-rml2sg:none>) AS ?qot)
+  BIND(COALESCE(?qoc0, <urn:x-rml2sg:none>) AS ?qoc)
+  OPTIONAL { ?qtm rmlc:baseIRI ?qb }
+  BIND(COALESCE(STR(?qb), ?base) AS ?qbase)
+}
