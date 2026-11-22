@@ -25,13 +25,13 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
     ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r
     WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
     ") AS"
-    TEMPLATE { " ?" ?colvar MD5(?r) }
+    TEMPLATE { " ?" ?colvar0 MD5(?r) }
     ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r .
     # an iterator binds at least one variable: without reference (constant
     # term maps only), the first column, positionally
     TEMPLATE { " ?c_" }
     WHERE {
-      FILTER(?scope = "tm")
+      FILTER(?rscope = "tm")
       FILTER NOT EXISTS {
         { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
         UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
@@ -44,6 +44,12 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
       }
       FILTER NOT EXISTS { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/rmlc:joinCondition/rmlc:child ?y }
     } .
+    # the position of the row (gather maps: scopes tmpos, parentpos)
+    TEMPLATE { " ?ipos" } WHERE { FILTER(?pos) } .
+    # RML-IO, rml:null: a value among the null values of the source is no value
+    TEMPLATE { " BIND(IF(STR(?n" ?colvar MD5(?r) ") IN (" ?nullList "), ?none, ?n" ?colvar MD5(?r) ") AS ?" ?colvar MD5(?r) ")" }
+    ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r
+    WHERE { FILTER(BOUND(?nullList)) } .
   } WHERE { FILTER(?rf = "CSV" && !?view) } .
 
   # a logical view (RML-LV): its iteration, the keys as columns, and its joins
@@ -52,21 +58,28 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
     TEMPLATE <templates/viewIteration.rqg>(?ls, ?colvar, 0) .
   } WHERE { FILTER(?view) } .
 
-  TEMPLATE { "ITERATOR iter:JSONPath(" ?srcText ", " ?itText ") AS ?it" }
+  TEMPLATE { "ITERATOR iter:JSONPath(" ?srcText ", " ?itText ") AS ?it" ?posText }
   WHERE { FILTER(?rf = "JSONPath") } .
 
-  TEMPLATE { "ITERATOR iter:XPath(" ?srcText ", " ?itText ") AS ?it" }
+  TEMPLATE { "ITERATOR iter:XPath(" ?srcText ", " ?itText ") AS ?it" ?posText }
   WHERE { FILTER(?rf = "XPath") } .
 }
 WHERE {
   # "jparent": the parent iterated inside its child's iteration, its columns
   # named ?jc_ (templates/joinInIteration.rqg)
-  BIND(IF(?scope = "jparent", "parent", ?scope) AS ?rscope)
+  BIND(IF(?scope IN ("jparent", "parentpos"), "parent", IF(?scope = "tmpos", "tm", ?scope)) AS ?rscope)
+  # the position of the iteration, as ?ipos (gather maps)
+  BIND(?scope IN ("tmpos", "parentpos") AS ?pos)
+  BIND(IF(?pos, " ?ipos", "") AS ?posText)
   BIND(IF(?scope = "jparent", "jc_", "c_") AS ?colvar)
   # without logical source (?rf "NONE"): no iterator
   OPTIONAL { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls }
   BIND(EXISTS { ?tm rmlc:logicalSource/rmlc:viewOn ?anyv } AS ?view)
   OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
+  # RML-IO: the null values of the source (rml:null), the columns then read as ?n<colvar>...
+  OPTIONAL { { SELECT ?ls (GROUP_CONCAT(CONCAT("\"", REPLACE(REPLACE(STR(?nv), "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\"") ; separator=", ") AS ?nullList)
+               WHERE { ?ls rmlc:source/rmlc:null ?nv } GROUP BY ?ls } }
+  BIND(IF(BOUND(?nullList), CONCAT("n", ?colvar), ?colvar) AS ?colvar0)
   OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p }
   BIND(COALESCE(STR(?p), STR(?src)) AS ?path)
   BIND(IF(REGEX(?path, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?path,

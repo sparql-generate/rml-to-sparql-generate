@@ -77,16 +77,16 @@ TEMPLATE <templates/gather.rqg>(?tm, ?gm, ?pom, ?rf, ?dialect, ?base) {
     FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?e }
   } GROUP BY ?gt ?tm ?gm ?pom ?rf ?dialect ?base .
   "    }\n    "
-  TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
-  " ?ipos\n    WHERE \{ BIND(SUBSTR(STR(1000000000 + ?ipos), 2) AS ?ikey) } .\n"
+  TEMPLATE <templates/iteration.rqg>(?tm, "tmpos", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .
+  "\n    WHERE \{ BIND(SUBSTR(STR(1000000000 + ?ipos), 2) AS ?ikey) } .\n"
   # the parent records of the joins
   TEMPLATE {
     "    GENERATE \{ ?r <urn:x-rml2sg:parent_" ?R "> ?o ; <urn:x-rml2sg:pkey> ?pikey ."
     TEMPLATE { " ?r <urn:x-rml2sg:pk_" ?R "_" ?h "> ?q" ?h " ." }
     ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .
     " }\n    "
-    TEMPLATE <templates/iteration.rqg>(?ptm, "parent", <urn:x-rml2sg:none>, ?m, ?prf) .
-    " ?ipos\n      "
+    TEMPLATE <templates/iteration.rqg>(?ptm, "parentpos", <urn:x-rml2sg:none>, ?m, ?prf) .
+    "\n      "
     TEMPLATE <templates/referenceIterators.rqg>(?psm, "", "o", ?prf, ?dialect) .
     TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("q", ?h), ?prf, ?dialect) . }
     ITERATOR <iterators/joinConditions.rqg>(?m) AS ?h ?ct ?cr ?jt ?jr .

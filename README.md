@@ -49,6 +49,7 @@ object map).
 | a triples map without logical source, of constant term maps (RML-FNML) | a sub-query without iterator, evaluated once |
 | logical views (RML-LV): `rml:LogicalView`, `rml:viewOn` (a logical source or another view), `rml:field` (`rml:ExpressionField` with `rml:reference`, `rml:template` or `rml:constant`; `rml:IterableField` with `rml:iterator`; nested fields, `rml:referenceFormulation` to change formulation: JSON in CSV, CSV in JSON), the index keys `#` and `<field>.#`, `rml:leftJoin` and `rml:innerJoin` (`rml:parentLogicalView`, `rml:joinCondition` with `rml:child`/`rml:parent` or `rml:childMap`/`rml:parentMap`, joined fields) | the iteration of the view as binding clauses: one iterator per field, nested over the records of its parent (one solution per logical view iteration), each key bound to a variable that the term maps read as a CSV column; a join is a `FROM GENERATE` of the parent view's iterations, matched in the `WHERE` clause (`OPTIONAL` for a left join) |
 | RML-star: `rml:quotedTriplesMap` in a subject map or an object map (star maps), on the same logical source or with `rml:joinCondition`, nested quoted triples, `rml:AssertedTriplesMap`, `rml:NonAssertedTriplesMap` | the triple term `afn:triple(s, p, o)` (Jena, RDF 1.2) of the terms of the quoted triples map on the same iteration; with a join, a `FROM GENERATE` of the quoted triples of the other source, matched in the `WHERE` clause; a non-asserted triples map generates no triple of its own |
+| RML-IO sources: `rml:source` as a literal path, `rml:FilePath` and `rml:RelativePathSource` (`rml:path`, `rml:root`); `rml:null` | the file, relative to the base IRI; a value among the null values of the source is no value (CSV) |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
@@ -111,6 +112,22 @@ joined row); over JSONPath and XPath sources, only constant quoted triples
 maps. The output writes triple terms in the RDF 1.2 syntax of Jena,
 `<<( s p o )>>`, in subject position too (RDF-star quoted triples, `<< s p o >>`).
 A `rml:quotedTriplesMap` outside a subject map or an object map is an `#ERROR`.
+
+Sources and targets (RML-IO). A compressed source (`rml:compression`: gzip, zip,
+tar.gz, tar.xz) and a source in UTF-16 with a byte order mark (`rml:encoding`) are
+read by SPARQL-Generate 2.4.2 or later, which decompresses local files by the
+extension of their name and transcodes them to UTF-8; 2.4.1 reads only gzip. Not
+translated: logical targets (`rml:logicalTarget`, `rml:LogicalTarget`,
+`rml:target`, serialization, compression, encoding of the output): a
+SPARQL-Generate query has one output, written by the command line; a target
+would need an output construct (a file per `GRAPH` block, or an output
+clause), which the language does not have. Nor sources that are not files
+(databases, SPARQL endpoints, a SPARQL query over a file:
+`formats:SPARQL_Results_*`), XPath with namespaces
+(`rml:XPathReferenceFormulation`, `rml:namespace`) or with the parent axis
+(`..`, the iteration being the serialised element), an encoding without byte
+order mark, the empty CSV cell as a value (SPARQL-Generate reads it as no value),
+and the errors of a CSV file with rows of the wrong length.
 
 ## Optimised translation
 
