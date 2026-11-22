@@ -98,7 +98,7 @@ the expression (`xsd:integer` for `string_length`).
 Logical views (RML-LV). A view iteration is a solution of the iterators of
 its fields, so an expression field without value removes the iteration (RML-LV
 keeps it, with a null value); a CSV source gives the index key `#` from the
-position of the row (SPARQL-Generate 2.4.2, as for gather maps), and an iterable field over
+position of the row (SPARQL-Generate 2.5.0, as for gather maps), and an iterable field over
 CSV text gives the index of its rows likewise. Fields nested deeper than three levels are not
 checked by the key checks. Cycles (`rml:viewOn`, joins, fields), two fields with the
 same name, and a reference to a key that the view does not have (or to an iterable
@@ -115,7 +115,7 @@ A `rml:quotedTriplesMap` outside a subject map or an object map is an `#ERROR`.
 
 Sources and targets (RML-IO). A compressed source (`rml:compression`: gzip, zip,
 tar.gz, tar.xz) and a source in UTF-16 with a byte order mark (`rml:encoding`) are
-read by SPARQL-Generate 2.4.2 or later, which decompresses local files by the
+read by SPARQL-Generate 2.5.0 or later, which decompresses local files by the
 extension of their name and transcodes them to UTF-8; 2.4.1 reads only gzip. Not
 translated: logical targets (`rml:logicalTarget`, `rml:LogicalTarget`,
 `rml:target`, serialization, compression, encoding of the output): a
@@ -142,7 +142,7 @@ same distinct triples):
 | R3 | the triples maps of one CSV file share one iteration of it: one GENERATE with all their triples, `iter:CSV` over the union of their columns | the same file and reference formulation, each triples map with at least one reference or template, and no blank node map without expression |
 | R4 | CSV files are read in batches of 10 000 rows (a streamed output is written batch by batch) | always: the generated queries have no solution modifier |
 
-Gather maps over a CSV source need SPARQL-Generate 2.4.2 or later: the order of
+Gather maps over a CSV source need SPARQL-Generate 2.5.0 or later: the order of
 the rows is the position that `iter:CSV` gives after the named columns (on an
 earlier version, the iteration has no solution). Over JSONPath and XPath sources, 2.4.0
 is enough.
@@ -166,11 +166,11 @@ graph and every named graph (an expected error passes when an error is raised, w
 | kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
 
 The suites of the RML modules (KG-Construct), measured by kgc-bench (`9b4215a`) on
-SPARQL-Generate 2.4.1 and on the branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT,
+SPARQL-Generate 2.4.1 and on SPARQL-Generate 2.5.0 (released from the branch `rml-modules`,
 commit `6fb62b9`), which reads the row position of `iter:CSV` and compressed or
 UTF-16 files:
 
-| suite | cases | PASS on 2.4.1 | PASS on `rml-modules` |
+| suite | cases | PASS on 2.4.1 | PASS on 2.5.0 |
 |---|---|---|---|
 | kg-construct/rml-cc@d97fddf | 35 | 33 | 35 |
 | kg-construct/rml-fnml@f573f79 | 22 | 21 | 21 |
