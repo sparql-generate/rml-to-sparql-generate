@@ -1,0 +1,29 @@
+# The referenceable keys of logical view ?v (RML-LV), as one string
+# "|k1|k2|...|" (templates/checks.rqg): "#", the key of each expression field
+# and the index key of each field ("<key>.#"), fields nested up to three
+# levels, and the fields of its joins. The key of an iterable field is not
+# referenceable.
+PREFIX rmlc: <http://w3id.org/rml/>
+
+SELECT <iterators/viewKeys.rqg>(?v) (CONCAT("|#|", GROUP_CONCAT(?k; separator="|"), "|") AS ?keys)
+WHERE {
+  {
+    ?v rmlc:field ?f .
+    ?f rmlc:fieldName ?n1 .
+    BIND(STR(?n1) AS ?n)
+  } UNION {
+    ?v rmlc:field ?f1 . ?f1 rmlc:field ?f .
+    ?f1 rmlc:fieldName ?n1 . ?f rmlc:fieldName ?n2 .
+    BIND(CONCAT(STR(?n1), ".", STR(?n2)) AS ?n)
+  } UNION {
+    ?v rmlc:field ?f1 . ?f1 rmlc:field ?f2 . ?f2 rmlc:field ?f .
+    ?f1 rmlc:fieldName ?n1 . ?f2 rmlc:fieldName ?n2 . ?f rmlc:fieldName ?n3 .
+    BIND(CONCAT(STR(?n1), ".", STR(?n2), ".", STR(?n3)) AS ?n)
+  } UNION {
+    ?v (rmlc:leftJoin|rmlc:innerJoin)/rmlc:field ?f .
+    ?f rmlc:fieldName ?n1 .
+    BIND(STR(?n1) AS ?n)
+  }
+  OPTIONAL { ?f rmlc:iterator ?it }
+  BIND(CONCAT(?n, ".#", IF(BOUND(?it), "", CONCAT("|", ?n))) AS ?k)
+}

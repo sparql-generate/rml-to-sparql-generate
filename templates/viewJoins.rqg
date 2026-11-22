@@ -1,0 +1,70 @@
+# The joins of logical view ?view (RML-LV: rml:leftJoin, rml:innerJoin), in the
+# iteration of a triples map over ?view (templates/iteration.rqg,
+# templates/triplesMap.rqg):
+#
+#   ?part = "graphs"    FROM GENERATE { ... }: per join J, a record per
+#                       iteration of the parent view (templates/viewIteration.rqg,
+#                       prefix ?p_): its keys (the parent side of each join
+#                       condition), and the value and index of each field of J
+#   ?part = "patterns"  in the WHERE clause: the child side of each join
+#                       condition, then the records with equal keys (OPTIONAL
+#                       for a left join), which bind the fields of J as keys of
+#                       ?view (?c_<md5(name)>, ?c_<md5(name.#)>)
+#
+# Keys are compared as strings; a child key without value joins nothing.
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/viewJoins.rqg>(?view, ?part) {
+  TEMPLATE {
+    "FROM GENERATE \{\n"
+    TEMPLATE {
+      "    GENERATE \{"
+      TEMPLATE { " ?r <urn:x-rml2sg:lvk_" ?J "_" ?h "> ?k" ?h " ." }
+      ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+      TEMPLATE { " ?r <urn:x-rml2sg:lvf_" ?J "_" ?hv "> ?f" ?hv " ; <urn:x-rml2sg:lvi_" ?J "_" ?hv "> ?i" ?hv " ." }
+      WHERE { ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv) } .
+      " }\n    "
+      TEMPLATE <templates/viewIteration.rqg>(?pv, "p_", 0) .
+      "WHERE \{ "
+      TEMPLATE { "BIND(STR(" TEMPLATE <templates/viewExpr.rqg>(?pt, ?pr, "p_") . ") AS ?k" ?h ") " }
+      ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+      TEMPLATE {
+        "BIND(" TEMPLATE <templates/viewExpr.rqg>(?jf, "", "p_") . " AS ?f" ?hv ") "
+        "BIND(" ?indexText " AS ?i" ?hv ") "
+      } WHERE {
+        ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv)
+        OPTIONAL { ?jf rmlc:reference ?jr }
+        BIND(IF(BOUND(?jr), CONCAT("COALESCE(?p_", MD5(CONCAT(STR(?jr), ".#")), ", 0)"), "0") AS ?indexText)
+      } .
+      "BIND(BNODE() AS ?r) } .\n"
+    }
+    WHERE {
+      ?view (rmlc:leftJoin|rmlc:innerJoin) ?j .
+      ?j rmlc:parentLogicalView ?pv .
+      BIND(MD5(IF(isBlank(?j), afn:bnode(?j), STR(?j))) AS ?J)
+    } .
+    "  } .\n  "
+  } WHERE { FILTER(?part = "graphs" && EXISTS { ?view (rmlc:leftJoin|rmlc:innerJoin) ?anyj }) } .
+
+  TEMPLATE {
+    TEMPLATE { "\n  BIND(STR(" TEMPLATE <templates/viewExpr.rqg>(?ct, ?cr, "c_") . ") AS ?lvk" ?J "_" ?h ")" }
+    ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+    "\n  " ?open
+    TEMPLATE { " ?lvr" ?J " <urn:x-rml2sg:lvk_" ?J "_" ?h "> ?lvx" ?J "_" ?h " . FILTER(?lvx" ?J "_" ?h " = ?lvk" ?J "_" ?h ")" }
+    ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+    TEMPLATE { " ?lvr" ?J " <urn:x-rml2sg:lvf_" ?J "_" ?hv "> ?c_" ?hv " ; <urn:x-rml2sg:lvi_" ?J "_" ?hv "> ?c_" ?hi " ." }
+    WHERE { ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv) BIND(MD5(CONCAT(STR(?n), ".#")) AS ?hi) } .
+    ?close
+  }
+  WHERE {
+    FILTER(?part = "patterns")
+    ?view ?kind ?j .
+    FILTER(?kind IN (rmlc:leftJoin, rmlc:innerJoin))
+    BIND(MD5(IF(isBlank(?j), afn:bnode(?j), STR(?j))) AS ?J)
+    # an inner join: the patterns and filters in the WHERE clause itself
+    BIND(IF(?kind = rmlc:leftJoin, "OPTIONAL \{", "") AS ?open)
+    BIND(IF(?kind = rmlc:leftJoin, " }", "") AS ?close)
+  } .
+}
+WHERE { }

@@ -1,0 +1,14 @@
+# The references of the fields of logical view ?view evaluated on the
+# iteration of its source (RML-LV: its fields, not the nested ones), as ONE
+# string in RML template syntax, as iterators/pieces.rqg: split by
+# iterators/viewColumns.rqg.
+PREFIX rmlc: <http://w3id.org/rml/>
+
+SELECT <iterators/viewPieces.rqg>(?view) (GROUP_CONCAT(?piece; separator="") AS ?all)
+WHERE {
+  ?view rmlc:field ?f .
+  OPTIONAL { ?f rmlc:template ?tpl }
+  OPTIONAL { ?f rmlc:reference ?r }
+  BIND(COALESCE(STR(?tpl), CONCAT("\{", REPLACE(STR(?r), "([\\\\\{}])", "\\\\$1"), "}")) AS ?piece)
+  FILTER(BOUND(?piece))
+}

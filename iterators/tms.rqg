@@ -17,8 +17,12 @@ WHERE {
   # is translated without iteration: ?rf is "NONE"
   ?tm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?anySubject .
   OPTIONAL { ?tm (rml:logicalSource|rmlc:logicalSource)/(rml:referenceFormulation|rmlc:referenceFormulation) ?rfi }
-  FILTER(BOUND(?rfi) || NOT EXISTS { ?tm (rml:logicalSource|rmlc:logicalSource|rr:logicalTable) ?anyls })
-  BIND(COALESCE(REPLACE(STR(?rfi), "^.*[#/]", ""), "NONE") AS ?rf)
+  FILTER(BOUND(?rfi) || EXISTS { ?tm rmlc:logicalSource/rmlc:viewOn ?anyv0 }
+         || NOT EXISTS { ?tm (rml:logicalSource|rmlc:logicalSource|rr:logicalTable) ?anyls })
+  # a logical view (RML-LV): its iterations are rows, its keys columns
+  # (templates/viewIteration.rqg)
+  BIND(IF(EXISTS { ?tm rmlc:logicalSource/rmlc:viewOn ?anyv }, "CSV",
+          COALESCE(REPLACE(STR(?rfi), "^.*[#/]", ""), "NONE")) AS ?rf)
   FILTER(?rf IN ("CSV", "JSONPath", "XPath", "NONE"))
   # a subject map that is a gather map: the triples map is translated by
   # templates/gather.rqg

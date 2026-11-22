@@ -1,0 +1,23 @@
+# The text of an RML template ?tpl over the keys of a logical view (RML-LV),
+# as templates/text.rqg without encoding: CONCAT("s0", STR(?<P><md5(r1)>), ...),
+# each reference r_i read from the variable of key r_i, with prefix ?P
+# (templates/viewIteration.rqg).
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/viewText.rqg>(?tpl, ?P) {
+  "CONCAT(\"\""
+  TEMPLATE { ", " ?part }
+  ITERATOR iter:regex(?tpl, "((?:[^\{}\\\\]|\\\\.)*)(\\\{(?:[^\{}\\\\]|\\\\.)*}|$)", 1, 2) AS ?lit0 ?g
+  WHERE {
+    BIND(REPLACE(?lit0, "\\\\(.)", "$1") AS ?lit)
+    BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?lit, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\n", "\\\\n"), "\r", "\\\\r"), "\\\{", "\\\\\{"), "\"") AS ?litText)
+    BIND(IF(STRLEN(?g) > 0, REPLACE(SUBSTR(?g, 2, STRLEN(?g) - 2), "\\\\(.)", "$1"), ?none) AS ?ref)
+    BIND(CONCAT("STR(?", ?P, MD5(?ref), ")") AS ?refText)
+    BIND(CONCAT(IF(STRLEN(?lit) > 0, ?litText, ""),
+                IF(STRLEN(?lit) > 0 && BOUND(?refText), ", ", ""),
+                COALESCE(?refText, "")) AS ?part)
+    FILTER(STRLEN(?part) > 0)
+  } .
+  ")"
+}
+WHERE { }

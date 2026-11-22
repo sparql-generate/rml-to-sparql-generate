@@ -47,6 +47,7 @@ object map).
 | gather maps (RML-CC, `http://w3id.org/rml/`): `rml:gather`, `rml:gatherAs` (`rdf:List`, `rdf:Bag`, `rdf:Seq`, `rdf:Alt`), `rml:strategy` (`rml:append`, `rml:cartesianProduct`), `rml:allowEmptyListAndContainer`, in a subject map or an object map, nested gather maps, named collections (`rml:template`, `rml:reference`, `rml:constant`, IRI or blank node), members that are referencing object maps, with graph maps | one sub-query per gather map at the top level: a `FROM GENERATE` iterates over the logical source and records each element of each collection with an order key (position of the iteration, member, positions of the values), then the cells (`rdf:first`, `rdf:rest`, `rdf:_n`) are built from the rank of each element in its collection (see below) |
 | function-valued term maps (RML-FNML): `rml:functionExecution`, `rml:function` or `rml:functionMap`, `rml:input` with `rml:parameter` or `rml:parameterMap`, `rml:inputValue` or `rml:inputValueMap` (reference, template, constant, function: composition), `rml:return` or `rml:returnMap`; in any term map, language and datatype maps included; `rml:condition` | the SPARQL expression of the function (see below), in place of the lexical form of the term map; a condition gives the term only when it is true |
 | a triples map without logical source, of constant term maps (RML-FNML) | a sub-query without iterator, evaluated once |
+| logical views (RML-LV): `rml:LogicalView`, `rml:viewOn` (a logical source or another view), `rml:field` (`rml:ExpressionField` with `rml:reference`, `rml:template` or `rml:constant`; `rml:IterableField` with `rml:iterator`; nested fields, `rml:referenceFormulation` to change formulation: JSON in CSV, CSV in JSON), the index keys `#` and `<field>.#`, `rml:leftJoin` and `rml:innerJoin` (`rml:parentLogicalView`, `rml:joinCondition` with `rml:child`/`rml:parent` or `rml:childMap`/`rml:parentMap`, joined fields) | the iteration of the view as binding clauses: one iterator per field, nested over the records of its parent (one solution per logical view iteration), each key bound to a variable that the term maps read as a CSV column; a join is a `FROM GENERATE` of the parent view's iterations, matched in the `WHERE` clause (`OPTIONAL` for a left join) |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
@@ -92,6 +93,16 @@ SPARQL-Generate `FUNCTION`), the GREL functions on arrays (`array_join`,
 function-valued object map is `rml:Literal`, with the datatype of the value of
 the expression (`xsd:integer` for `string_length`).
 
+Logical views (RML-LV). A view iteration is a solution of the iterators of
+its fields, so an expression field without value removes the iteration (RML-LV
+keeps it, with a null value); a CSV source gives the index key `#` from the
+position of the row (SPARQL-Generate 2.4.2, as for gather maps), and an iterable field over
+CSV text gives the index of its rows likewise. Fields nested deeper than three levels are not
+checked by the key checks. Cycles (`rml:viewOn`, joins, fields), two fields with the
+same name, and a reference to a key that the view does not have (or to an iterable
+field, or to `<it>`) are `#ERROR` lines. The joins of a view that is itself the
+source of another view, or the parent of a join, are not translated.
+
 ## Optimised translation
 
 The generated query is the direct translation, followed by mechanical rewritings; each is exact (the same output up to isomorphism), and is checked
@@ -129,13 +140,16 @@ graph and every named graph (an expected error passes when an error is raised, w
 | kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
 | kg-construct/rml-cc@d97fddf, JSON and CSV | 35 | 35 | 0 |
 | kg-construct/rml-fnml@f573f79, CSV | 22 | 21 | 1 |
+| kg-construct/rml-lv@94beb94, JSON and CSV | 41 | 40 | 1 |
 
 The suites of the RML modules (KG-Construct) were measured on 2.4.1, and on the
 branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT) for what needs it:
 rml-cc passes 33 cases on 2.4.1, and its two CSV cases (referencing object maps
 as members) on the branch (commit `e62ab90`). The rml-fnml failure is a
 reference to a column that the CSV file does not have, an error that the
-generated query does not raise (as RML-Core 0002c).
+generated query does not raise (as RML-Core 0002c). rml-lv passes 36 cases on
+2.4.1, 40 on the branch (the index key `#` of CSV sources); the failure is an
+inner join with a parent iteration whose field has no value (0010b).
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in

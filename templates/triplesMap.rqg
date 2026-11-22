@@ -126,6 +126,9 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   # CSV: the terms are bound in the WHERE clause of the triples map, which the
   # engine evaluates once per batch of rows
   TEMPLATE { "\n  WHERE \{" } WHERE { FILTER(?rf = "CSV") } .
+  # a logical view (RML-LV): its joins
+  TEMPLATE { TEMPLATE <templates/viewJoins.rqg>(?lsv, "patterns") . }
+  WHERE { FILTER(?rf = "CSV") ?tm rmlc:logicalSource ?lsv . ?lsv rmlc:viewOn ?anyv } .
 
   # one blank node per iteration for a blank node map without expression
   # ?bn_s for the subject map, ?bn_o for the

@@ -1,0 +1,59 @@
+# The iteration of logical view ?view (RML-LV), as binding clauses: one solution per
+# logical view iteration, the value of each key k in the variable ?<P><md5(k)>
+# (the prefix ?P is "c_" for the logical view of a triples map, whose term maps
+# then read their references as CSV columns: templates/termMap.rqg):
+#
+#   the source       ITERATOR iter:JSONPath(<file>, "<iterator>") AS ?<P>rroot ?<P><md5("#")>
+#                    (iter:XPath likewise; iter:CSV binds the columns that the
+#                    fields read, and the position of the row as key "#" when a
+#                    reference ends with "#", SPARQL-Generate 2.4.2); a logical view
+#                    as source: its own iteration, prefix ?<P>v
+#   the fields       templates/viewFields.rqg: an iterator per expression field
+#                    (one solution per value) and per iterable field, nested
+#                    fields over their record
+#
+# The joins of the view are added by templates/viewJoins.rqg. ?depth bounds
+# the nesting of views on views (a cycle is reported by templates/checks.rqg).
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/viewIteration.rqg>(?view, ?P, ?depth) {
+  TEMPLATE { "ITERATOR iter:JSONPath(" ?srcText ", " ?itText ") AS ?" ?P "rroot ?" ?P ?hroot "\n    " }
+  WHERE { FILTER(?srf = "JSONPath") } .
+  TEMPLATE { "ITERATOR iter:XPath(" ?srcText ", " ?itText ") AS ?" ?P "rroot ?" ?P ?hroot "\n    " }
+  WHERE { FILTER(?srf = "XPath") } .
+  TEMPLATE {
+    "ITERATOR iter:CSV(" ?srcText ", 10000"
+    TEMPLATE { ", " ?colText }
+    ITERATOR <iterators/viewColumns.rqg>(?view) AS ?col
+    WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?col, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?colText) } .
+    ") AS"
+    TEMPLATE { " ?" ?P "col" MD5(?col) }
+    ITERATOR <iterators/viewColumns.rqg>(?view) AS ?col .
+    TEMPLATE { " ?" ?P ?hroot } WHERE { FILTER(?position) } .
+    "\n    "
+  } WHERE { FILTER(?srf = "CSV") } .
+  TEMPLATE <templates/viewIteration.rqg>(?src, CONCAT(?P, "v"), ?depth + 1)
+  WHERE { FILTER(?srf = "VIEW" && ?depth < 8) } .
+
+  TEMPLATE <templates/viewFields.rqg>(?view, ?rec, ?srf, "", ?P, CONCAT(?P, "v"), 0) .
+}
+WHERE {
+  ?view rmlc:viewOn ?src .
+  BIND(MD5("#") AS ?hroot)
+  OPTIONAL { ?src rmlc:referenceFormulation ?rfi }
+  BIND(IF(EXISTS { ?src rmlc:viewOn ?anon1 }, "VIEW", REPLACE(STR(?rfi), "^.*[#/]", "")) AS ?srf)
+  # the record of the fields: a variable, or for CSV the prefix of the columns
+  BIND(IF(?srf IN ("JSONPath", "XPath"), CONCAT("?", ?P, "rroot"), IF(?srf = "CSV", CONCAT(?P, "col"), "")) AS ?rec)
+  OPTIONAL { ?src rmlc:source ?s0 . FILTER(isLiteral(?s0)) }
+  OPTIONAL { ?src rmlc:source/(rmlc:path|rmlc:file) ?p0 }
+  BIND(COALESCE(STR(?p0), STR(?s0)) AS ?path)
+  BIND(IF(REGEX(?path, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?path,
+       IF(STRSTARTS(?path, "/"), CONCAT("file://", ?path), ?path)) AS ?iri)
+  BIND(CONCAT("<", REPLACE(?iri, " ", "%20"), ">") AS ?srcText)
+  OPTIONAL { ?src rmlc:iterator ?iterator0 }
+  BIND(COALESCE(STR(?iterator0), IF(?srf = "JSONPath", "$", "/*")) AS ?iterator)
+  BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?iterator, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?itText)
+  # the position of the CSV row, only when an index key is referenced
+  BIND(EXISTS { ?anon2 (rmlc:reference|rmlc:child|rmlc:parent) ?ir FILTER(REGEX(STR(?ir), "#$")) }
+       || EXISTS { ?anon3 rmlc:template ?it FILTER(CONTAINS(STR(?it), "#}")) } AS ?position)
+}

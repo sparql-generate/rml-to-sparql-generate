@@ -41,7 +41,13 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
         ?t (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)*/(rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?x
       }
     } .
-  } WHERE { FILTER(?rf = "CSV") } .
+  } WHERE { FILTER(?rf = "CSV" && !?view) } .
+
+  # a logical view (RML-LV): its iteration, the keys as columns, and its joins
+  TEMPLATE {
+    TEMPLATE <templates/viewJoins.rqg>(?ls, "graphs") .
+    TEMPLATE <templates/viewIteration.rqg>(?ls, ?colvar, 0) .
+  } WHERE { FILTER(?view) } .
 
   TEMPLATE { "ITERATOR iter:JSONPath(" ?srcText ", " ?itText ") AS ?it" }
   WHERE { FILTER(?rf = "JSONPath") } .
@@ -56,6 +62,7 @@ WHERE {
   BIND(IF(?scope = "jparent", "jc_", "c_") AS ?colvar)
   # without logical source (?rf "NONE"): no iterator
   OPTIONAL { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls }
+  BIND(EXISTS { ?tm rmlc:logicalSource/rmlc:viewOn ?anyv } AS ?view)
   OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
   OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p }
   BIND(COALESCE(STR(?p), STR(?src)) AS ?path)

@@ -63,7 +63,35 @@ TEMPLATE <templates/checks.rqg>(?dialect) {
   WHERE { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
           OPTIONAL { ?ls (rml:referenceFormulation|rmlc:referenceFormulation) ?rfi }
           BIND(COALESCE(REPLACE(STR(?rfi), "^.*[#/]", ""), "no reference formulation") AS ?what)
-          FILTER(!(?what IN ("CSV", "JSONPath", "XPath"))) } .
+          FILTER(!(?what IN ("CSV", "JSONPath", "XPath")))
+          FILTER NOT EXISTS { ?ls rmlc:viewOn ?anon13 } } .
+
+  # RML-LV: cycles, name collisions, references to keys that a logical view
+  # does not have (iterators/viewKeys.rqg)
+  TEMPLATE { "#ERROR: a logical view or a field depends on itself\n" }
+  WHERE { { ?v (rmlc:viewOn|(rmlc:leftJoin|rmlc:innerJoin)/rmlc:parentLogicalView)+ ?v } UNION { ?f rmlc:field+ ?f } } LIMIT 1 .
+
+  TEMPLATE { "#ERROR: a logical view has two fields named \"" ?k "\"\n" }
+  WHERE {
+    { SELECT ?v ?k WHERE {
+        { ?v rmlc:field ?f . ?f rmlc:fieldName ?n1 . BIND(STR(?n1) AS ?k) }
+        UNION { ?v rmlc:field ?f1 . ?f1 rmlc:field ?f . ?f1 rmlc:fieldName ?n1 . ?f rmlc:fieldName ?n2 .
+                BIND(CONCAT(STR(?n1), ".", STR(?n2)) AS ?k) }
+        UNION { ?v (rmlc:leftJoin|rmlc:innerJoin)/rmlc:field ?f . ?f rmlc:fieldName ?n1 . BIND(STR(?n1) AS ?k) }
+      } GROUP BY ?v ?k HAVING (COUNT(DISTINCT ?f) > 1) }
+  } .
+
+  TEMPLATE {
+    TEMPLATE { "#ERROR: logical view " ?vText " has no referenceable key \"" ?r "\"\n" }
+    ITERATOR <iterators/viewKeys.rqg>(?v) AS ?keys
+    ITERATOR <iterators/references.rqg>("tm", ?tm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+    WHERE { FILTER(!CONTAINS(?keys, CONCAT("|", ?r, "|"))) } .
+  }
+  WHERE {
+    ?tm rmlc:logicalSource ?v . ?v rmlc:viewOn ?anon14 .
+    FILTER NOT EXISTS { ?v (rmlc:viewOn|(rmlc:leftJoin|rmlc:innerJoin)/rmlc:parentLogicalView)+ ?v }
+    BIND(IF(isIRI(?v), STR(?v), "[]") AS ?vText)
+  } .
 
   # RML-FNML: unknown functions, parameters and outputs (iterators/functions.rqg)
   TEMPLATE {
