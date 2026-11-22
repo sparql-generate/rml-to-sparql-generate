@@ -1,0 +1,82 @@
+# The template text that puts the triple patterns ?triples (a string, such as
+# "?s ?p ?o .") in the target graphs of subject map ?sm and predicate-object
+# map ?pom (<urn:x-rml2sg:none> for the classes, which go to the graphs of the
+# subject map only):
+#
+#   ?triples                          the default graph: neither ?sm nor ?pom has
+#                                     a graph map, or one of them is rr:defaultGraph
+#   GRAPH <g> { ?triples }            a constant graph map (rr:graph <g>,
+#                                     rr:graphMap [ rr:constant <g> ])
+#   GRAPH ?g_<prefix><h> { ?triples } a graph map with an expression, ?mode = "var":
+#                                     its term is bound by the caller, once per
+#                                     iteration (CSV, iterators/graphMaps.rqg), as
+#                                     the term map in role g_<prefix><h>
+#   GENERATE { GRAPH ?g { ?triples } } <iterators> WHERE { <term map> } .
+#                                     ?mode = "nested" (JSONPath, XPath): a
+#                                     sub-query over the current iteration ?it,
+#                                     one quad per value of the graph map; a
+#                                     graph map without value generates nothing,
+#                                     and the other graphs keep their triples
+#
+# A graph term that cannot be built (missing value, invalid IRI) leaves its
+# variable unbound, and the engine generates no quad in that graph. The graph
+# term is an IRI (default term type of a graph map); templates/checks.rqg
+# rejects a graph map of another term type.
+#
+# (GROUP BY: one clause per graph; the variables of the caller are grouped
+# by too, or they would be lost.)
+#
+# A graph map is a node of rr:graphMap (rmlc:graphMap); the shortcut rr:graph
+# (rmlc:graph) gives a constant. A constant that is not an IRI (rr:graph [ ... ],
+# a blank node) names no graph: the triple is not generated in it (a literal is
+# an error, templates/checks.rqg).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+TEMPLATE <templates/graphs.rqg>(?sm, ?pom, ?triples, ?mode, ?prefix, ?rf, ?dialect, ?base) {
+
+  # the default graph
+  TEMPLATE { ?triples " " }
+  WHERE {
+    FILTER((NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 }
+            && NOT EXISTS { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 })
+        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg1
+                    FILTER(?dg1 IN (rr:defaultGraph, rmlc:defaultGraph)) }
+        || EXISTS { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg2
+                    FILTER(?dg2 IN (rr:defaultGraph, rmlc:defaultGraph)) })
+  } .
+
+  # constant named graphs
+  TEMPLATE { "GRAPH <" STR(?gc) "> \{ " ?triples " } " }
+  WHERE {
+    { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gc }
+    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gc }
+    FILTER(isIRI(?gc) && !(?gc IN (rr:defaultGraph, rmlc:defaultGraph)))
+  } GROUP BY ?gc ?triples .
+
+  # graph maps with an expression, bound by the caller
+  TEMPLATE { "GRAPH ?g_" ?prefix ?h " \{ " ?triples " } " }
+  WHERE {
+    FILTER(?mode = "var")
+    { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+    BIND(MD5(IF(isBlank(?gt), afn:bnode(?gt), STR(?gt))) AS ?h)
+  } GROUP BY ?h ?triples ?prefix .
+
+  # graph maps with an expression, in a sub-query over the iteration
+  TEMPLATE {
+    "GENERATE \{ GRAPH ?g \{ " ?triples " } } "
+    TEMPLATE <templates/referenceIterators.rqg>(?gt, "", "g", ?rf, ?dialect) .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", "g", "graph", ?rf, ?dialect, ?base) .
+    "} . "
+  }
+  WHERE {
+    FILTER(?mode = "nested")
+    { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+  } GROUP BY ?gt ?triples ?rf ?dialect ?base .
+}
+WHERE { }

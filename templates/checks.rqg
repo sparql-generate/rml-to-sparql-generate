@@ -21,8 +21,12 @@ TEMPLATE <templates/checks.rqg>(?dialect) {
   WHERE { ?anon3 (rr:subjectMap|rmlc:subjectMap)/(rr:termType|rmlc:termType) ?tt . FILTER(?tt IN (rr:Literal, rmlc:Literal)) } LIMIT 1 .
 
   TEMPLATE { "#ERROR: a predicate map or graph map does not generate IRIs\n" }
-  WHERE { ?anon4 (rr:predicateMap|rmlc:predicateMap|rr:graphMap|rmlc:graphMap)/(rr:termType|rmlc:termType) ?tt .
-          FILTER(?tt IN (rr:Literal, rmlc:Literal, rr:BlankNode, rmlc:BlankNode)) } LIMIT 1 .
+  WHERE { { ?anon4 (rr:predicateMap|rmlc:predicateMap|rr:graphMap|rmlc:graphMap)/(rr:termType|rmlc:termType) ?tt .
+            FILTER(?tt IN (rr:Literal, rmlc:Literal, rr:BlankNode, rmlc:BlankNode)) }
+          UNION
+          # a literal graph name: rr:graph "g", rr:graphMap [ rr:constant "g" ]
+          { ?anon9 ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?gl .
+            FILTER(isLiteral(?gl)) } } LIMIT 1 .
 
   TEMPLATE { "#ERROR: invalid language tag \"" ?lang "\"\n" }
   WHERE { ?anon5 (rr:language|rmlc:language) ?l . BIND(STR(?l) AS ?lang)

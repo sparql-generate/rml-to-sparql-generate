@@ -1,0 +1,22 @@
+# The graph maps with an expression (template, reference) of triples map ?tm:
+# those of its subject map and of its predicate-object map ?pom, or of all its
+# predicate-object maps when ?pom is <urn:x-rml2sg:none>; one solution per
+# graph map, with ?h, the name of its term (?g_<h>), as in
+# templates/graphs.rqg. A CSV row is one iteration: the term of each graph map
+# is bound once per row, in the WHERE clause of the triples map
+# (templates/triplesMap.rqg, templates/csvGroup.rqg); a join carries it from
+# the child's iteration (templates/join.rqg).
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX afn:  <http://jena.apache.org/ARQ/function#>
+
+SELECT <iterators/graphMaps.rqg>(?tm, ?pom) DISTINCT ?h ?gt
+WHERE {
+  ?tm (rr:subjectMap|rmlc:subjectMap|rr:predicateObjectMap|rmlc:predicateObjectMap) ?x .
+  FILTER(?pom = <urn:x-rml2sg:none> || ?x = ?pom || EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap) ?x })
+  ?x (rr:graphMap|rmlc:graphMap) ?gt .
+  FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+  BIND(MD5(IF(isBlank(?gt), afn:bnode(?gt), STR(?gt))) AS ?h)
+}
+ORDER BY ?h

@@ -11,10 +11,11 @@
 # with a join, or over another logical source, are translated apart, at the
 # top level (templates/join.rqg), so that the parent is read once.
 #
-# GENERATE writes triples to the default graph only: a predicate-object map
-# is translated when its triples go to the default graph, that is when
-# neither it nor the subject map has a graph map, or when one of them is
-# rr:defaultGraph.
+# Graph maps (templates/graphs.rqg): each triple pattern is written in the
+# target graphs of its subject map and predicate-object map (the classes: of
+# the subject map), the default graph or GRAPH blocks. CSV: the terms of the
+# graph maps with an expression are bound once per row, ?g_<h>; JSONPath,
+# XPath: in a sub-query of the predicate-object map, one quad per value.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
@@ -25,10 +26,9 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
 
   # classes: (s, rdf:type, c)
   TEMPLATE {
-    "    GENERATE \{"
-    TEMPLATE { " ?s a <" STR(?class) "> ." }
-    WHERE { ?sm (rr:class|rmlc:class) ?class } .
-    " }\n    "
+    "    GENERATE \{ "
+    TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, ?classes, "nested", "", ?rf, ?dialect, ?base) .
+    "}\n    "
     TEMPLATE <templates/referenceIterators.rqg>(?sm, "", "s", ?rf, ?dialect) .
     "WHERE \{ "
     TEMPLATE <templates/termMap.rqg>(?sm, <urn:x-rml2sg:none>, "", "s", "subject", ?rf, ?dialect, ?base)
@@ -38,15 +38,15 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   WHERE {
     FILTER(?rf != "CSV")
     ?tm (rr:subjectMap|rmlc:subjectMap) ?sm .
-    FILTER EXISTS { ?sm (rr:class|rmlc:class) ?anon1 }
-    FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon2 }
-        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
-                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
+    { SELECT ?sm (GROUP_CONCAT(CONCAT("?s a <", STR(?class), "> .") ; separator=" ") AS ?classes)
+      WHERE { ?sm (rr:class|rmlc:class) ?class } GROUP BY ?sm }
   } .
 
   # predicate-object maps: (s, p, o)
   TEMPLATE {
-    "    GENERATE \{ ?s ?p ?o . }\n    "
+    "    GENERATE \{ "
+    TEMPLATE <templates/graphs.rqg>(?st, ?pom, "?s ?p ?o .", "nested", "", ?rf, ?dialect, ?base) .
+    "}\n    "
     TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
     TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) .
     TEMPLATE <templates/referenceIterators.rqg>(?ot, "", "o", ?rf, ?dialect) .
@@ -104,24 +104,16 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
     OPTIONAL { ?ptmx rmlc:baseIRI ?pb0 }
     BIND(IF(BOUND(?ptm), COALESCE(STR(?pb0), ?gbase), ?base) AS ?obase)
     BIND(IF(BOUND(?ptm), "subject", "object") AS ?okind)
-    # the triples go to the default graph
-    FILTER(NOT EXISTS { { ?st (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
-        || EXISTS { { ?st ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
   } .
 
   # CSV: the triples of the classes and of the predicate-object maps
-  TEMPLATE { "    ?s a <" STR(?class) "> .\n" }
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, CONCAT("?s a <", STR(?class), "> ."), "var", "", ?rf, ?dialect, ?base) . "\n" }
   WHERE {
     FILTER(?rf = "CSV")
     ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
-    FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon2 }
-        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
-                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
   } .
-  TEMPLATE { "    ?s ?p_" ?key " ?o_" ?key " .\n" }
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, CONCAT("?s ?p_", ?key, " ?o_", ?key, " ."), "var", "", ?rf, ?dialect, ?base) . "\n" }
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE { FILTER(?rf = "CSV") } .
   # CSV, a blank node subject without expression: its joins in its iteration
   TEMPLATE { TEMPLATE <templates/joinInIteration.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?ptm, ?prf, ?dialect, ?base, ?pbase, ?x) . }
@@ -165,7 +157,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
     "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?key), "predicate", ?rf, ?dialect, ?base) .
     TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?key), ?okind, ?rf, ?dialect, ?obase) .
   }
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE {
     FILTER(?rf = "CSV")
     BIND(IF(?okind = "subject", IF(?pbiri != "", ?pbiri, ?gbase), ?base) AS ?obase)
@@ -174,6 +166,10 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   TEMPLATE { "\n  " TEMPLATE <templates/termMap.rqg>(?ct, <urn:x-rml2sg:none>, ?cr, CONCAT("k", ?h, "_", ?x), "key", ?rf, ?dialect, ?base) . }
   ITERATOR <iterators/joinsInIteration.rqg>(?tm, ?gbase) AS ?x ?pom ?pt ?pc ?om ?ptm ?prf ?pbase
   ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr
+  WHERE { FILTER(?rf = "CSV") } .
+  # the terms of the graph maps with an expression, once per row
+  TEMPLATE { "\n  " TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?h), "graph", ?rf, ?dialect, ?base) . }
+  ITERATOR <iterators/graphMaps.rqg>(?tm, <urn:x-rml2sg:none>) AS ?h ?gt
   WHERE { FILTER(?rf = "CSV") } .
   TEMPLATE { "\n  }" } WHERE { FILTER(?rf = "CSV") } .
   " .\n"

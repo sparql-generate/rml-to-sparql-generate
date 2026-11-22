@@ -10,14 +10,19 @@
 #     WHERE { <parent subject ?jo_<x>> <parent keys ?jq<h>_<x>>
 #             FILTER(?jq<h>_<x> = ?k<h>_<x>) ... <predicate ?pj_<x>> } .
 #
-# The child keys ?k<h>_<x> are bound in the child's WHERE clause
-# (templates/triplesMap.rqg). Only for a CSV child (no ?it of the child to
-# hide); the cost is the product of the two sources.
+# The child keys ?k<h>_<x>, and the graph terms ?g_<h> of the graph maps with
+# an expression, are bound in the child's WHERE clause
+# (templates/triplesMap.rqg); the triple goes to the graphs of the child's
+# subject map and predicate-object map (templates/graphs.rqg). Only for a CSV
+# child (no ?it of the child to hide); the cost is the product of the two
+# sources.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
 
 TEMPLATE <templates/joinInIteration.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?ptm, ?prf, ?dialect, ?base, ?pbase, ?x) {
-  "    GENERATE \{ ?s ?pj_" ?x " ?jo_" ?x " . }\n      "
+  "    GENERATE \{ "
+  TEMPLATE <templates/graphs.rqg>(?sm, ?pom, CONCAT("?s ?pj_", ?x, " ?jo_", ?x, " ."), "var", "", "CSV", ?dialect, ?base) .
+  "}\n      "
   TEMPLATE <templates/iteration.rqg>(?ptm, "jparent", ?pom, ?om, ?prf) .
   "\n      "
   TEMPLATE <templates/referenceIterators.rqg>(?psm, "", CONCAT("jo_", ?x), ?prf, ?dialect) .
@@ -32,6 +37,7 @@ TEMPLATE <templates/joinInIteration.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?ptm, ?prf, ?
   "} .\n"
 }
 WHERE {
+  ?tm (rr:subjectMap|rmlc:subjectMap) ?sm .
   OPTIONAL { ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm0 }
   BIND(COALESCE(?psm0, <urn:x-rml2sg:none>) AS ?psm)
 }

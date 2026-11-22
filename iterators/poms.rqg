@@ -1,15 +1,15 @@
 # The predicate-object maps of a triples map ?tm translated within its
 # iteration (templates/triplesMap.rqg): one solution per (predicate-object
-# map, predicate map, object map) whose triples go to the default graph, with
-# ?key, a name for the variables of that pair, stable across calls (the
-# generated triples and the generated BIND clauses must agree), and ?pbiri,
-# the base IRI of the parent of a referencing object map ("" if none).
+# map ?pom, predicate map, object map), with ?key, a name for the variables of
+# that pair, stable across calls (the generated triples and the generated BIND
+# clauses must agree), and ?pbiri, the base IRI of the parent of a referencing
+# object map ("" if none).
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
 PREFIX afn:  <http://jena.apache.org/ARQ/function#>
 
-SELECT <iterators/poms.rqg>(?tm) DISTINCT ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+SELECT <iterators/poms.rqg>(?tm) DISTINCT ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
 WHERE {
     OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm0 }
     OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc0 }
@@ -55,11 +55,6 @@ WHERE {
     BIND(COALESCE(?ptm, <urn:x-rml2sg:none>) AS ?ptmx)
     OPTIONAL { ?ptmx rmlc:baseIRI ?pb0 }
     BIND(COALESCE(STR(?pb0), "") AS ?pbiri)
-    # the triples go to the default graph
-    FILTER(NOT EXISTS { { ?st (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
-        || EXISTS { { ?st ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
     BIND(CONCAT(IF(isBlank(?pom), afn:bnode(?pom), STR(?pom)), "|",
                 IF(isBlank(?pt), afn:bnode(?pt), STR(?pt)), "|", STR(?pc), "|",
                 IF(isBlank(?ot), afn:bnode(?ot), STR(?ot)), "|", STR(?oc)) AS ?id)

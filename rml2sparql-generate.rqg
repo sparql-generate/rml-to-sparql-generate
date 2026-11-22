@@ -77,11 +77,6 @@ TEMPLATE {
     BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
     OPTIONAL { ?ptm rmlc:baseIRI ?pb }
     BIND(COALESCE(STR(?pb), ?base) AS ?pbase)
-    # the triples go to the default graph (see templates/triplesMap.rqg)
-    FILTER(NOT EXISTS { { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
-        || EXISTS { { ?tm (rr:subjectMap|rmlc:subjectMap)/((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                    UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
   } .
 
   "}\nWHERE \{}\n"

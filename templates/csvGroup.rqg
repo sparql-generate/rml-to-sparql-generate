@@ -1,7 +1,8 @@
 # Rewriting R3 (README.md): the triples maps of group ?src (CSV, see iterators/tms.rqg) in one
 # sub-query that reads the file once:
 #
-#   GENERATE { ?s_<t> a <C> . ?s_<t> ?p_<key> ?o_<key> . ... (every triples map <t>) }
+#   GENERATE { ?s_<t> a <C> . ?s_<t> ?p_<key> ?o_<key> . ... (every triples map <t>,
+#              GRAPH blocks for graph maps: templates/graphs.rqg) }
 #   ITERATOR iter:CSV(<file>, 10000, <the union of their columns>) AS ?c_...
 #   WHERE { <subject of each triples map, as ?s_<t>> <terms of its pairs, R1> } .
 #
@@ -21,20 +22,17 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
   ", one iteration of " ?srcText "\n  GENERATE \{\n"
 
   # the classes of each triples map
-  TEMPLATE { "    ?s_" ?t " a <" STR(?class) "> .\n" }
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, CONCAT("?s_", ?t, " a <", STR(?class), "> ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
   WHERE {
     FILTER(?group = ?src)
     ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
-    FILTER(NOT EXISTS { ?sm (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?anon1 }
-        || EXISTS { ?sm ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg
-                    FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
-  # the triples of each pair of term maps
-  TEMPLATE { "    ?s_" ?t " ?p_" ?t "_" ?key " ?o_" ?t "_" ?key " .\n" }
+  # the triples of each pair of term maps, in their graphs (templates/graphs.rqg)
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, CONCAT("?s_", ?t, " ?p_", ?t, "_", ?key, " ?o_", ?t, "_", ?key, " ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE {
     FILTER(?group = ?src)
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
@@ -68,12 +66,22 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
     TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?t, "_", ?key), ?okind, "CSV", ?dialect, ?obase) .
   }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
-  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri
+  ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE {
     FILTER(?group = ?src)
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
     # the parent's subject is built against the parent's base IRI
     BIND(IF(?okind = "subject", IF(?pbiri != "", ?pbiri, ?base), ?tmbase) AS ?obase)
+  } .
+  # the terms of the graph maps with an expression of each triples map
+  TEMPLATE {
+    "\n  " TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?t, "_", ?h), "graph", "CSV", ?dialect, ?tmbase) .
+  }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/graphMaps.rqg>(?tm, <urn:x-rml2sg:none>) AS ?h ?gt
+  WHERE {
+    FILTER(?group = ?src)
+    BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
   "\n  } .\n"
 }

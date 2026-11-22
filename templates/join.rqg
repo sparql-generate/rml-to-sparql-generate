@@ -19,13 +19,23 @@
 # are compared as strings (iterators/joinConditions.rqg names each condition).
 # Iterating over the parent for each child iteration would give the same
 # set of triples, at the cost of the product of the two sources.
+#
+# Graph maps (templates/graphs.rqg): the triple goes to the graphs of the
+# child's subject map and predicate-object map. A graph map with an expression
+# is evaluated in the child's iteration: each iteration is then a node ?cn,
+# with the graph term(s) of that iteration, <urn:x-rml2sg:graph_<h>> ?g_<h>
+# (CSV: bound in the child's WHERE clause; JSONPath, XPath: a sub-query, one
+# value per solution); the join reads them with OPTIONAL, and a graph without
+# value generates no quad.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
 
 TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?base, ?pbase) {
   "\n  # " ?tmText " → " ?ptmText "\n"
-  "  GENERATE \{ ?s ?p ?o . }\n"
+  "  GENERATE \{ "
+  TEMPLATE <templates/graphs.rqg>(?st, ?pom, "?s ?p ?o .", "var", "", ?rf, ?dialect, ?base) .
+  "}\n"
   "  FROM GENERATE \{\n"
 
   # the parent side
@@ -50,8 +60,21 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   "    GENERATE \{"
   TEMPLATE { " " ?cnode " <urn:x-rml2sg:child_" ?h "> ?k" ?h " ." }
   ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
-  TEMPLATE { " _:c <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p ." } WHERE { FILTER(?records) } .
+  TEMPLATE { " " ?cnode " <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p ." } WHERE { FILTER(?records) } .
   TEMPLATE { " ?s <urn:x-rml2sg:child> true ." } WHERE { FILTER(!?keys) } .
+  # the graph terms of the iteration
+  TEMPLATE { " ?cn <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " ." }
+  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
+  WHERE { FILTER(?rf = "CSV") } .
+  TEMPLATE {
+    " GENERATE \{ ?cn <urn:x-rml2sg:graph_" ?h "> ?g . } "
+    TEMPLATE <templates/referenceIterators.rqg>(?gt, "", "g", ?rf, ?dialect) .
+    "WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", "g", "graph", ?rf, ?dialect, ?base) .
+    "} ."
+  }
+  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
+  WHERE { FILTER(?rf != "CSV") } .
   " }\n      "
   TEMPLATE <templates/iteration.rqg>(?tm, "child", ?pom, ?om, ?rf) .
   "\n      "
@@ -64,6 +87,10 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(?records) } .
   TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("k", ?h), "key", ?rf, ?dialect, ?base) . }
   ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+  TEMPLATE { "BIND(BNODE() AS ?cn) " } WHERE { FILTER(?graphs) } .
+  TEMPLATE { TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?h), "graph", ?rf, ?dialect, ?base) . }
+  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
+  WHERE { FILTER(?rf = "CSV") } .
   "} .\n  } .\n"
 
   # the join
@@ -73,6 +100,8 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   TEMPLATE { " " ?cvar " <urn:x-rml2sg:child_" ?h "> ?x" ?h " . " ?pvar " <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ." }
   ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
   TEMPLATE { " ?s <urn:x-rml2sg:child> true . ?o <urn:x-rml2sg:parent> true ." } WHERE { FILTER(!?keys) } .
+  TEMPLATE { " OPTIONAL \{ ?c <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " }" }
+  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt .
   "\n    "
   TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(!?records) } .
   "\n  } .\n"
@@ -90,9 +119,12 @@ WHERE {
   # one node per iteration when there are several keys or when the predicate
   # depends on the child iteration; direct key triples otherwise
   BIND(EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j1 } AS ?keys)
+  # graph maps with an expression, in the subject map or in ?pom
+  BIND(EXISTS { { ?st (rr:graphMap|rmlc:graphMap) ?gm } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gm }
+                ?gm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?gv } AS ?graphs)
   BIND((EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j2, ?j3 . FILTER(?j2 != ?j3) }
-        || EXISTS { ?pt (rr:template|rmlc:template|rml:reference|rmlc:reference) ?pv }) AS ?records)
-  BIND(IF(?records, "_:c", "?s") AS ?cnode)
+        || EXISTS { ?pt (rr:template|rmlc:template|rml:reference|rmlc:reference) ?pv } || ?graphs) AS ?records)
+  BIND(IF(?graphs, "?cn", IF(?records, "_:c", "?s")) AS ?cnode)
   BIND(IF(?records, "_:r", "?o") AS ?pnode)
   # in the join pattern, the iteration nodes are variables
   BIND(IF(?records, "?c", "?s") AS ?cvar)

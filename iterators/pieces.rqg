@@ -8,7 +8,7 @@
 #                      subject without expression, also the child keys of its
 #                      joins (made in its iteration);
 #   ?scope = "child"   the child side of the join ?om of predicate-object map
-#                      ?pom: subject map, predicate maps, child keys;
+#                      ?pom: subject map, predicate maps, graph maps, child keys;
 #   ?scope = "parent"  the parent side: parent subject map, parent keys;
 #   ?scope = "term"    the single term map ?tm.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
@@ -66,7 +66,8 @@ WHERE {
       } UNION {
         BIND("child" AS ?scope)
         { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
-        UNION { ?pom (rr:predicateMap|rmlc:predicateMap) ?t }
+        UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
+        UNION { ?pom (rr:predicateMap|rmlc:predicateMap|rr:graphMap|rmlc:graphMap) ?t }
         UNION { ?om (rr:joinCondition|rmlc:joinCondition)/rmlc:childMap ?t }
       } UNION {
         BIND("parent" AS ?scope)

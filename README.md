@@ -10,12 +10,16 @@ cp -r rml2sparql-generate.rqg templates iterators work/
 (cd work && java -jar sparql-generate.jar -d . -q rml2sparql-generate.rqg \
       -b http://example.com/base/ -o generated.rqg)
 # then, from the directory of the data, with the same base:
-java -jar sparql-generate.jar -d data -q generated.rqg -b http://example.com/base/ -o out.nt -fo NT
+java -jar sparql-generate.jar -d data -q generated.rqg -b http://example.com/base/ -o out.nq -fo NQUADS
 ```
 
 Run the translator from its own directory: its named templates
 (`templates/*.rqg`, `iterators/*.rqg`) are resolved against the current
-directory. `-b` gives the base IRI of the mapping: it resolves the relative
+directory. The generated query writes an RDF dataset: the default graph, and the named
+graphs of the graph maps of the mapping (`GRAPH` blocks), hence N-Quads or TriG
+(`-fo NQUADS`, `-fo TRIG`); `-fo NT` suits a mapping without graph maps.
+
+`-b` gives the base IRI of the mapping: it resolves the relative
 IRIs that the mapping generates, and it names the sources of the generated
 query (`ITERATOR iter:CSV(<student.csv>, ...)`), which the command line maps to
 the files of the data directory.
@@ -39,8 +43,8 @@ object map).
 | referencing object map, same logical source, no join | the parent's subject, on the same iteration |
 | referencing object map with `rr:joinCondition` (`rml:childMap`/`rml:parentMap` too) | the parent is generated once as a graph (`FROM GENERATE`), the join is a basic graph pattern over it; for a CSV child whose subject is a blank node without expression, the join is a sub-query in the child's iteration (the blank node of a row must be the same in both) |
 | `rml:baseIRI` (per triples map) | yes |
-| graph maps | GENERATE writes triples: only the triples of the **default graph** are generated |
-| invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, invalid language tag, invalid template, unbalanced JSONPath, ...) |
+| graph maps: `rr:graphMap`, `rr:graph`, `rml:graphMap`, `rml:graph` (RML-Core), on the subject map (every triple of the triples map, `rr:class` included) and on each predicate-object map; several graph maps: the triple in each; `rr:defaultGraph`: the default graph | the default graph outside `GRAPH` blocks, `GRAPH <g> { ... }` for a constant, `GRAPH ?g { ... }` for a template or a reference (term type IRI), bound once per row (CSV) or in a sub-query of the predicate-object map, one quad per value (JSONPath, XPath); with a join, the graph term is carried from the child's iteration |
+| invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
 triples maps; a SPARQL `BNODE(str)` is fresh for each solution. The generated
@@ -57,31 +61,34 @@ same distinct triples):
 |---|---|---|
 | R1 | the sub-queries of an iteration (one for the classes, one per predicate map and object map) are flattened into the WHERE clause of the triples map: each term is bound once per row, and the triples map has one template | CSV sources: a reference has one value per row, so each sub-query has at most one solution |
 | R2 | `IRI(?l)` instead of a run-time test for a relative IRI | templates whose constant text starts with a scheme |
-| R3 | the triples maps of a CSV source read by several of them share one iteration of the file (their variables renamed apart) | CSV triples maps with a reference, and without a blank node map without expression |
 | R3 | the triples maps of one CSV file share one iteration of it: one GENERATE with all their triples, `iter:CSV` over the union of their columns | the same file and reference formulation, each triples map with at least one reference or template, and no blank node map without expression |
 | R4 | CSV files are read in batches of 10 000 rows (a streamed output is written batch by batch) | always: the generated queries have no solution modifier |
 
-The translation needs SPARQL-Generate 2.2.3 or later.
+The translation needs SPARQL-Generate 2.4.0 or later: graph maps are translated into
+`GRAPH` blocks of the `GENERATE` template (quad patterns). The query generated from a
+mapping without graph maps has no `GRAPH` block, and also runs on 2.2.3 and later.
 
 ## Conformance
 
-Measured by kgc-bench on SPARQL-Generate 2.2.4 (release) and pysparql-generate, which give
-the same status on every case, by RDF dataset isomorphism with the expected output of each
-case (an expected error passes when an error is raised, with `--fail-on-missing`):
+Measured by kgc-bench with SPARQL-Generate 2.4.0 before its release (branch
+`quad-patterns`, commit `8ba16cf`), by RDF dataset isomorphism with the expected output of each case, the default
+graph and every named graph (an expected error passes when an error is raised, with
+`--fail-on-missing`):
 
-| suite | cases | PASS | N/A (graph maps) | FAIL |
-|---|---|---|---|---|
-| RMLio/rml-test-cases@803dd3ec, CSV | 39 | 32 | 6 | 1 |
-| RMLio/rml-test-cases@803dd3ec, JSON | 40 | 33 | 6 | 1 |
-| RMLio/rml-test-cases@803dd3ec, XML | 38 | 31 | 6 | 1 |
-| kg-construct/rml-core@82ab28d4, JSON | 76 | 66 | 7 | 3 |
+| suite | cases | PASS | FAIL |
+|---|---|---|---|
+| RMLio/rml-test-cases@803dd3ec, CSV | 39 | 38 | 1 |
+| RMLio/rml-test-cases@803dd3ec, JSON | 40 | 39 | 1 |
+| RMLio/rml-test-cases@803dd3ec, XML | 38 | 37 | 1 |
+| kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
 
-Graph maps need quad templates (`GENERATE { GRAPH ?g { ... } }`), planned for
-SPARQL-Generate 2.3; the default graph of those cases is checked. The failures are
-errors that only the data reveal (an unknown column or file, a reference to an array, an
-invalid IRI), which the generated query does not raise, and `rml:UnsafeIRI` values with
-spaces, which the engine rejects as IRIs (Jena's `IRI()`, also behind `<...{?x}>`). A
-missing file is an error with `--fail-on-missing` (2.2.3).
+The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
+the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in
+joins, and with JSONPath values in number other than one. The failures are errors that
+only the data reveal (an unknown column or file, a reference to an array, an invalid
+IRI), which the generated query does not raise, and `rml:UnsafeIRI` values with spaces,
+which the engine rejects as IRIs (Jena's `IRI()`, also behind `<...{?x}>`). A missing
+file is an error with `--fail-on-missing` (2.2.3).
 
 ## History
 

@@ -28,11 +28,6 @@ WHERE {
   BIND(COALESCE(?pc0, <urn:x-rml2sg:none>) AS ?pc)
   OPTIONAL { ?ptm rmlc:baseIRI ?pb }
   BIND(COALESCE(STR(?pb), ?gbase) AS ?pbase)
-  # the triples go to the default graph
-  FILTER(NOT EXISTS { { ?bs (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g1 } UNION { ?pom (rr:graphMap|rmlc:graphMap|rr:graph|rmlc:graph) ?g2 } }
-      || EXISTS { { ?bs ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                  UNION { ?pom ((rr:graphMap|rmlc:graphMap)/(rr:constant|rmlc:constant)|rr:graph|rmlc:graph) ?dg }
-                  FILTER(?dg IN (rr:defaultGraph, rmlc:defaultGraph)) })
   BIND(MD5(CONCAT(IF(isBlank(?pom), afn:bnode(?pom), STR(?pom)), "|", IF(isBlank(?om), afn:bnode(?om), STR(?om)),
                   "|", IF(isBlank(?pt), afn:bnode(?pt), STR(?pt)), "|", STR(?pc))) AS ?x)
 }
