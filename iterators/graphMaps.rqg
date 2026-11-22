@@ -16,7 +16,7 @@ WHERE {
   ?tm (rr:subjectMap|rmlc:subjectMap|rr:predicateObjectMap|rmlc:predicateObjectMap) ?x .
   FILTER(?pom = <urn:x-rml2sg:none> || ?x = ?pom || EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap) ?x })
   ?x (rr:graphMap|rmlc:graphMap) ?gt .
-  FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+  FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?e }
   BIND(MD5(IF(isBlank(?gt), afn:bnode(?gt), STR(?gt))) AS ?h)
 }
 ORDER BY ?h

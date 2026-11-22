@@ -1,0 +1,43 @@
+# The functions of RML-FNML (FnO) that the translator knows: ?f, the function;
+# ?pattern, the SPARQL expression it translates to, where %<name>% stands for
+# the value of the input whose parameter has the local name <name> (an
+# expression, templates/functionArg.rqg), or ?none when the input is absent;
+# ?params and ?outputs, the local names of its parameters and of its outputs
+# (templates/checks.rqg). GREL functions
+# (http://users.ugent.be/~bjdmeest/function/grel.ttl#) and IDLab functions
+# (https://w3id.org/imec/idlab/function#), mostly SPARQL built-in functions.
+#
+# One solution for function ?fn: ?known is false, and ?pattern "?none", for a
+# function that the translator does not know.
+SELECT <iterators/functions.rqg>(?fn) ?pattern ?params ?outputs ?known
+WHERE {
+  VALUES (?f ?p ?a ?o) {
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#toUpperCase> "UCASE(STR(%valueParam%))" "valueParam" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#toLowerCase> "LCASE(STR(%valueParam%))" "valueParam" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#toTitlecase> "<http://w3id.org/sparql-generate/fn/titleCase>(STR(%valueParam%))" "valueParam" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_trim> "REPLACE(STR(%valueParam%), \"^\\\\s+|\\\\s+$\", \"\")" "valueParam" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_length> "STRLEN(STR(%valueParam%))" "valueParam" "output_number")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_substring> "IF(<http://www.w3.org/2001/XMLSchema#integer>(STR(%p_int_i_from%)) > STRLEN(STR(%valueParam%)), ?none, SUBSTR(STR(%valueParam%), <http://www.w3.org/2001/XMLSchema#integer>(STR(%p_int_i_from%)) + 1, COALESCE(<http://www.w3.org/2001/XMLSchema#integer>(STR(%p_int_i_opt_to%)) - <http://www.w3.org/2001/XMLSchema#integer>(STR(%p_int_i_from%)), STRLEN(STR(%valueParam%)))))" "valueParam p_int_i_from p_int_i_opt_to" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_replace> "REPLACE(STR(%valueParam%), STR(%param_find%), REPLACE(STR(%param_replace%), \"([$\\\\\\\\])\", \"\\\\\\\\$1\"), \"q\")" "valueParam param_find param_replace" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_contains> "CONTAINS(STR(%valueParam%), STR(%p_string_sub%))" "valueParam p_string_sub" "output_bool")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_startsWith> "STRSTARTS(STR(%valueParam%), STR(%p_string_sub%))" "valueParam p_string_sub" "output_bool")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_endsWith> "STRENDS(STR(%valueParam%), STR(%p_string_sub%))" "valueParam p_string_sub" "output_bool")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_md5> "MD5(STR(%valueParam%))" "valueParam" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#string_sha1> "SHA1(STR(%valueParam%))" "valueParam" "stringOut")
+    (<http://users.ugent.be/~bjdmeest/function/grel.ttl#escape> "IF(STR(%modeParam%) = \"url\", ENCODE_FOR_URI(STR(%valueParam%)), REPLACE(REPLACE(REPLACE(REPLACE(STR(%valueParam%), \"&\", \"&amp;\"), \"<\", \"&lt;\"), \">\", \"&gt;\"), \"\\\"\", \"&quot;\"))" "valueParam modeParam" "stringOut")
+    (<https://w3id.org/imec/idlab/function#toUpperCaseURL> "IF(STRSTARTS(UCASE(STR(%_str%)), \"HTTP://\"), UCASE(STR(%_str%)), CONCAT(\"HTTP://\", UCASE(STR(%_str%))))" "_str" "_stringOut")
+    (<https://w3id.org/imec/idlab/function#equal> "(STR(%valueParam%) = STR(%valueParam2%))" "valueParam valueParam2" "_boolOut")
+    (<https://w3id.org/imec/idlab/function#notEqual> "(STR(%valueParam%) != STR(%valueParam2%))" "valueParam valueParam2" "_boolOut")
+    (<https://w3id.org/imec/idlab/function#concat> "CONCAT(STR(%_str%), COALESCE(STR(%_delimiter%), \"\"), STR(%_otherStr%))" "_str _otherStr _delimiter" "_stringOut")
+    (<https://w3id.org/imec/idlab/function#trueCondition> "IF(STR(%_strBoolean%) = \"true\", %_str%, ?none)" "_strBoolean _str" "_stringOut")
+    (<https://w3id.org/imec/idlab/function#alwaysReturnsABC> "\"ABC\"" "" "_stringOut")
+    (<urn:x-rml2sg:unknown> "?none" "" "")
+  }
+  FILTER(?f = ?fn || ?f = <urn:x-rml2sg:unknown>)
+  BIND(?f = ?fn AS ?known)
+  BIND(?p AS ?pattern)
+  BIND(?a AS ?params)
+  BIND(?o AS ?outputs)
+}
+ORDER BY DESC(?known)
+LIMIT 1

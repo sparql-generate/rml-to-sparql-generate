@@ -1,0 +1,33 @@
+# The value of term map ?t as an expression, for an input of a function
+# (templates/functionArg.rqg) or a condition (templates/termMap.rqg): a
+# constant, the variable of a reference (as in templates/termMap.rqg), the text
+# of a template (IRI-safe encoding when its term type is IRI), the expression
+# of a function execution (templates/function.rqg), or ?none.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+
+TEMPLATE <templates/valueExpr.rqg>(?t, ?role, ?rf, ?dialect, ?base) {
+  TEMPLATE { ?constText } WHERE { FILTER(BOUND(?c)) } .
+  TEMPLATE { ?var } WHERE { FILTER(!BOUND(?c) && BOUND(?r)) } .
+  TEMPLATE { TEMPLATE <templates/text.rqg>(?tpl, ?enc, ?role, ?rf) . } WHERE { FILTER(!BOUND(?c) && !BOUND(?r) && BOUND(?tpl)) } .
+  TEMPLATE <templates/function.rqg>(?fe, ?role, ?rf, ?dialect, ?base) WHERE { FILTER(!BOUND(?c) && !BOUND(?r) && !BOUND(?tpl) && BOUND(?fe)) } .
+  TEMPLATE { "?none" } WHERE { FILTER(!BOUND(?c) && !BOUND(?r) && !BOUND(?tpl) && !BOUND(?fe)) } .
+}
+WHERE {
+  OPTIONAL { ?t (rr:constant|rmlc:constant) ?c }
+  OPTIONAL { ?t (rml:reference|rmlc:reference|rr:column) ?r0 }
+  BIND(STR(?r0) AS ?r)
+  OPTIONAL { ?t (rr:template|rmlc:template) ?tpl0 }
+  BIND(STR(?tpl0) AS ?tpl)
+  OPTIONAL { ?t rmlc:functionExecution ?fe }
+  OPTIONAL { ?t (rr:termType|rmlc:termType) ?tt }
+  BIND(COALESCE(IF(?tt IN (rr:IRI, rmlc:IRI), "iri", IF(?tt = rmlc:URI, "uri", "none")), "none") AS ?enc)
+  BIND(CONCAT(IF(?rf = "CSV", IF(STRSTARTS(?role, "j"), "?jc_", "?c_"), CONCAT("?", ?role, "_")), MD5(?r)) AS ?var)
+  BIND(IF(isIRI(?c), CONCAT("<", STR(?c), ">"),
+       CONCAT("\"", REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(STR(?c), "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\n", "\\\\n"), "\r", "\\\\r"), "\\\{", "\\\\\{"), "\"",
+              IF(LANG(?c) != "", CONCAT("@", LANG(?c)),
+              IF(DATATYPE(?c) != xsd:string, CONCAT("^^<", STR(DATATYPE(?c)), ">"), ""))))
+       AS ?constText)
+}

@@ -26,7 +26,7 @@ WHERE {
         # (?tm is matched by a triple pattern: a BIND or FILTER in a UNION
         # branch does not see the bindings of the caller)
         BIND("term" AS ?scope)
-        ?tm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anyValue .
+        ?tm (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)*/(rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anyValue .
         BIND(?tm AS ?t)
       } UNION {
         BIND("tm" AS ?scope)
@@ -83,8 +83,11 @@ WHERE {
         UNION { ?om (rr:joinCondition|rmlc:joinCondition)/rmlc:parentMap ?t }
       }
     }
-    OPTIONAL { ?t (rr:template|rmlc:template) ?tpl }
-    OPTIONAL { ?t (rml:reference|rmlc:reference|rr:column) ?r }
+    # the term map, and the input value maps of its functions and conditions
+    # (RML-FNML), nested ones included
+    ?t (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)* ?t2 .
+    OPTIONAL { ?t2 (rr:template|rmlc:template) ?tpl }
+    OPTIONAL { ?t2 (rml:reference|rmlc:reference|rr:column) ?r }
   } UNION {
     # references given as strings: rr:child, rr:parent
     {

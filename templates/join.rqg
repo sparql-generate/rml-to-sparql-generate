@@ -121,7 +121,7 @@ WHERE {
   BIND(EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j1 } AS ?keys)
   # graph maps with an expression, in the subject map or in ?pom
   BIND(EXISTS { { ?st (rr:graphMap|rmlc:graphMap) ?gm } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gm }
-                ?gm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?gv } AS ?graphs)
+                ?gm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?gv } AS ?graphs)
   BIND((EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j2, ?j3 . FILTER(?j2 != ?j3) }
         || EXISTS { ?pt (rr:template|rmlc:template|rml:reference|rmlc:reference) ?pv } || ?graphs) AS ?records)
   BIND(IF(?graphs, "?cn", IF(?records, "_:c", "?s")) AS ?cnode)

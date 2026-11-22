@@ -13,9 +13,13 @@ PREFIX rmlc: <http://w3id.org/rml/>
 
 SELECT <iterators/tms.rqg>(?base) ?tm ?rf ?tmbase ?group
 WHERE {
-  ?tm (rml:logicalSource|rmlc:logicalSource)/(rml:referenceFormulation|rmlc:referenceFormulation) ?rfi .
-  BIND(REPLACE(STR(?rfi), "^.*[#/]", "") AS ?rf)
-  FILTER(?rf IN ("CSV", "JSONPath", "XPath"))
+  # a triples map without logical source (RML-FNML: constant term maps only)
+  # is translated without iteration: ?rf is "NONE"
+  ?tm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?anySubject .
+  OPTIONAL { ?tm (rml:logicalSource|rmlc:logicalSource)/(rml:referenceFormulation|rmlc:referenceFormulation) ?rfi }
+  FILTER(BOUND(?rfi) || NOT EXISTS { ?tm (rml:logicalSource|rmlc:logicalSource|rr:logicalTable) ?anyls })
+  BIND(COALESCE(REPLACE(STR(?rfi), "^.*[#/]", ""), "NONE") AS ?rf)
+  FILTER(?rf IN ("CSV", "JSONPath", "XPath", "NONE"))
   # a subject map that is a gather map: the triples map is translated by
   # templates/gather.rqg
   FILTER NOT EXISTS { ?tm rmlc:subjectMap/rmlc:gather ?anyg }

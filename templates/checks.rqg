@@ -65,6 +65,43 @@ TEMPLATE <templates/checks.rqg>(?dialect) {
           BIND(COALESCE(REPLACE(STR(?rfi), "^.*[#/]", ""), "no reference formulation") AS ?what)
           FILTER(!(?what IN ("CSV", "JSONPath", "XPath"))) } .
 
+  # RML-FNML: unknown functions, parameters and outputs (iterators/functions.rqg)
+  TEMPLATE {
+    TEMPLATE { "#ERROR: unknown function <" STR(?f) ">\n" }
+    ITERATOR <iterators/functions.rqg>(?f) AS ?pattern ?params ?outputs ?known
+    WHERE { FILTER(!?known) } .
+    TEMPLATE { "#ERROR: function <" STR(?f) "> has no parameter " ?badParam "\n" }
+    ITERATOR <iterators/functions.rqg>(?f) AS ?pattern ?params ?outputs ?known
+    WHERE {
+      FILTER(?known)
+      ?fe rmlc:input/(rmlc:parameter|rmlc:parameterMap/rmlc:constant) ?param .
+      BIND(REPLACE(STR(?param), "^.*[#/]", "") AS ?local0)
+      BIND(IF(?local0 = "valueParameter", "valueParam", IF(?local0 = "valueParameter2", "valueParam2",
+           IF(?local0 = "p_string_find", "param_find", IF(?local0 = "p_string_replace", "param_replace",
+           IF(?local0 = "modeParameter", "modeParam", ?local0))))) AS ?badParam)
+      FILTER(!CONTAINS(CONCAT(" ", ?params, " "), CONCAT(" ", ?badParam, " ")))
+    } .
+    TEMPLATE { "#ERROR: function <" STR(?f) "> has no output " ?badOut "\n" }
+    ITERATOR <iterators/functions.rqg>(?f) AS ?pattern ?params ?outputs ?known
+    WHERE {
+      FILTER(?known)
+      ?em rmlc:functionExecution ?fe .
+      ?em (rmlc:return|rmlc:returnMap/rmlc:constant) ?out .
+      BIND(REPLACE(STR(?out), "^.*[#/]", "") AS ?badOut)
+      FILTER(!CONTAINS(CONCAT(" ", ?outputs, " "), CONCAT(" ", ?badOut, " ")))
+    } .
+  }
+  WHERE { ?fe (rmlc:function|rmlc:functionMap/rmlc:constant) ?f } .
+
+  TEMPLATE { "#ERROR: triples map " ?tmText " has no logical source, and a term map that is not constant\n" }
+  WHERE {
+    ?tm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?anon10 .
+    FILTER NOT EXISTS { ?tm (rml:logicalSource|rmlc:logicalSource|rr:logicalTable) ?anon11 }
+    FILTER EXISTS {
+      ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap))/(rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition|rmlc:languageMap|rmlc:datatypeMap)*/(rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anon12 }
+    BIND(IF(isIRI(?tm), STR(?tm), "[]") AS ?tmText)
+  } .
+
   TEMPLATE { "#ERROR: logical table (R2RML) instead of a logical source\n" }
   WHERE { ?anon7 rr:logicalTable ?anon8 } LIMIT 1 .
 }

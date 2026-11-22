@@ -26,8 +26,11 @@ PREFIX afn:  <http://jena.apache.org/ARQ/function#>
 TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, ?base) {
 
   # constant-valued
-  TEMPLATE { "BIND(" ?constText " AS ?" ?role ") " }
-  WHERE { FILTER(BOUND(?c)) } .
+  TEMPLATE { "BIND(" ?constTerm " AS ?" ?role ") " }
+  WHERE {
+    FILTER(BOUND(?c))
+    BIND(IF(BOUND(?cond), CONCAT("IF(?cond_", ?role, ", ", ?constText, ", ?none)"), ?constText) AS ?constTerm)
+  } .
 
   # lexical form of a reference-valued term map
   TEMPLATE { "BIND(" ?lexical " AS ?l_" ?role ") " }
@@ -51,6 +54,14 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
     BIND(IF(?tt = "IRI", "iri", IF(?tt = "URI", "uri", "none")) AS ?enc)
   } .
 
+  # lexical form of a function-valued term map (RML-FNML)
+  TEMPLATE { "BIND(" TEMPLATE <templates/function.rqg>(?fe, ?role, ?rf, ?dialect, ?base) . " AS ?l_" ?role ") " }
+  WHERE { FILTER(BOUND(?fe) && !BOUND(?c) && !BOUND(?r) && !BOUND(?tpl)) } .
+
+  # a condition (RML-FNML, rml:condition): the term only when it is true
+  TEMPLATE { "BIND(" TEMPLATE <templates/valueExpr.rqg>(?cond, ?role, ?rf, ?dialect, ?base) . " AS ?cond_" ?role ") " }
+  WHERE { FILTER(BOUND(?cond)) } .
+
   # language and datatype maps (RML-Core): their own terms, bound first
   TEMPLATE <templates/termMap.rqg>(?lm, <urn:x-rml2sg:none>, "", CONCAT(?role, "lang"), "language", ?rf, ?dialect, ?base)
   WHERE { FILTER(BOUND(?lm)) } .
@@ -60,7 +71,7 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
   # the term, from the lexical form
   TEMPLATE { "BIND(" ?term " AS ?" ?role ") " }
   WHERE {
-    FILTER(!BOUND(?c) && (BOUND(?r) || BOUND(?tpl)))
+    FILTER(!BOUND(?c) && (BOUND(?r) || BOUND(?tpl) || BOUND(?fe)))
     BIND(CONCAT("?l_", ?role) AS ?l)
     BIND(CONCAT("STR(", ?l, ")") AS ?sl)
     BIND(CONCAT("\"", REPLACE(REPLACE(?base, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\"") AS ?baseText)
@@ -78,14 +89,15 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
       IF(BOUND(?lm), CONCAT("STRLANG(", ?sl, ", ?", ?role, "lang)"),
       IF(BOUND(?dt), CONCAT("STRDT(", ?sl, ", <", STR(?dt), ">)"),
       IF(BOUND(?dm), CONCAT("STRDT(", ?sl, ", ?", ?role, "dt)"),
-      ?l)))))))) AS ?term)
+      ?l)))))))) AS ?term0)
+    BIND(IF(BOUND(?cond), CONCAT("IF(?cond_", ?role, ", ", ?term0, ", ?none)"), ?term0) AS ?term)
   } .
 
   # a blank node without expression: one per iteration, bound by the
   # enclosing triples-map query (templates/triplesMap.rqg)
   # one blank node per iteration and role: ?bn_s, ?bn_o (also for o_<key>)
   TEMPLATE { "BIND(?bn_" SUBSTR(?role, 1, 1) " AS ?" ?role ") " }
-  WHERE { FILTER(!BOUND(?c) && !BOUND(?r) && !BOUND(?tpl) && ?tt = "BlankNode") } .
+  WHERE { FILTER(!BOUND(?c) && !BOUND(?r) && !BOUND(?tpl) && !BOUND(?fe) && ?tt = "BlankNode") } .
 }
 WHERE {
   OPTIONAL { ?t (rr:constant|rmlc:constant) ?c0 }
@@ -94,6 +106,8 @@ WHERE {
   BIND(COALESCE(STR(?r0), IF(?ref != "", ?ref, ?none)) AS ?r)
   OPTIONAL { ?t (rr:template|rmlc:template) ?tpl0 }
   BIND(STR(?tpl0) AS ?tpl)
+  OPTIONAL { ?t rmlc:functionExecution ?fe }
+  OPTIONAL { ?t rmlc:condition ?cond }
   OPTIONAL { ?t (rr:termType|rmlc:termType) ?tt0 }
   OPTIONAL { ?t (rr:language|rmlc:language) ?lang }
   OPTIONAL { ?t rmlc:languageMap ?lm }
@@ -101,7 +115,7 @@ WHERE {
   OPTIONAL { ?t rmlc:datatypeMap ?dm }
   # term type: explicit, or the default of RML ("Default term types")
   BIND(COALESCE(REPLACE(STR(?tt0), "^.*[#/]", ""),
-       IF(?kind = "object" && (BOUND(?r) || BOUND(?lang) || BOUND(?lm) || BOUND(?dt) || BOUND(?dm)),
+       IF(?kind = "object" && (BOUND(?r) || BOUND(?fe) || BOUND(?lang) || BOUND(?lm) || BOUND(?dt) || BOUND(?dm)),
           "Literal",
        IF(?kind = "key" || ?kind = "language", "Literal", "IRI"))) AS ?tt)
   # the text of a constant: an IRI, a literal, or (as a string) a key

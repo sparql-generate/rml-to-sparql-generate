@@ -74,7 +74,7 @@ TEMPLATE <templates/gather.rqg>(?tm, ?gm, ?pom, ?rf, ?dialect, ?base) {
   TEMPLATE { TEMPLATE <templates/gatherGroup.rqg>(?tm, ?gm, ?pom, "a", "", 0, "expression", ?gt, ?rf, ?dialect, ?base) . }
   WHERE {
     { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
-    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?e }
   } GROUP BY ?gt ?tm ?gm ?pom ?rf ?dialect ?base .
   "    }\n    "
   TEMPLATE <templates/iteration.rqg>(?tm, "tm", <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?rf) .

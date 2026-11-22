@@ -45,6 +45,8 @@ object map).
 | `rml:baseIRI` (per triples map) | yes |
 | graph maps: `rr:graphMap`, `rr:graph`, `rml:graphMap`, `rml:graph` (RML-Core), on the subject map (every triple of the triples map, `rr:class` included) and on each predicate-object map; several graph maps: the triple in each; `rr:defaultGraph`: the default graph | the default graph outside `GRAPH` blocks, `GRAPH <g> { ... }` for a constant, `GRAPH ?g { ... }` for a template or a reference (term type IRI), bound once per row (CSV) or in a sub-query of the predicate-object map, one quad per value (JSONPath, XPath); with a join, the graph term is carried from the child's iteration |
 | gather maps (RML-CC, `http://w3id.org/rml/`): `rml:gather`, `rml:gatherAs` (`rdf:List`, `rdf:Bag`, `rdf:Seq`, `rdf:Alt`), `rml:strategy` (`rml:append`, `rml:cartesianProduct`), `rml:allowEmptyListAndContainer`, in a subject map or an object map, nested gather maps, named collections (`rml:template`, `rml:reference`, `rml:constant`, IRI or blank node), members that are referencing object maps, with graph maps | one sub-query per gather map at the top level: a `FROM GENERATE` iterates over the logical source and records each element of each collection with an order key (position of the iteration, member, positions of the values), then the cells (`rdf:first`, `rdf:rest`, `rdf:_n`) are built from the rank of each element in its collection (see below) |
+| function-valued term maps (RML-FNML): `rml:functionExecution`, `rml:function` or `rml:functionMap`, `rml:input` with `rml:parameter` or `rml:parameterMap`, `rml:inputValue` or `rml:inputValueMap` (reference, template, constant, function: composition), `rml:return` or `rml:returnMap`; in any term map, language and datatype maps included; `rml:condition` | the SPARQL expression of the function (see below), in place of the lexical form of the term map; a condition gives the term only when it is true |
+| a triples map without logical source, of constant term maps (RML-FNML) | a sub-query without iterator, evaluated once |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
@@ -64,6 +66,31 @@ true; otherwise neither is generated. Not translated: `rml:cartesianProduct` in 
 nested gather map (its members are appended), a gather map in a predicate map
 or a graph map. A referencing object map among the members, without join
 condition, gives the subject of its parent evaluated on the same iteration.
+
+Functions (RML-FNML). Each function known to the translator is an expression of
+SPARQL or of the function library of SPARQL-Generate (`iterators/functions.rqg`),
+its inputs substituted by their values:
+
+| function | expression |
+|---|---|
+| `grel:toUpperCase`, `grel:toLowerCase`, `grel:toTitlecase` | `UCASE`, `LCASE`, `fun:titleCase` |
+| `grel:string_trim`, `grel:string_length` | `REPLACE(..., "^\\s+\|\\s+$", "")`, `STRLEN` |
+| `grel:string_substring` (`p_int_i_from`, `p_int_i_opt_to`) | `SUBSTR`, no value past the end |
+| `grel:string_replace` (`param_find`, `param_replace`) | `REPLACE(..., "q")`, both strings literal |
+| `grel:string_contains`, `grel:string_startsWith`, `grel:string_endsWith` | `CONTAINS`, `STRSTARTS`, `STRENDS` |
+| `grel:string_md5`, `grel:string_sha1` | `MD5`, `SHA1` |
+| `grel:escape` (`modeParam`: `html`, `xml`, `url`) | `REPLACE` of `&`, `<`, `>`, `"`; `ENCODE_FOR_URI` |
+| `idlab-fn:equal`, `idlab-fn:notEqual`, `idlab-fn:concat`, `idlab-fn:trueCondition`, `idlab-fn:toUpperCaseURL` | `=`, `!=`, `CONCAT`, `IF`, `UCASE` with `HTTP://` |
+
+(`grel:` is `http://users.ugent.be/~bjdmeest/function/grel.ttl#`, `idlab-fn:`
+`https://w3id.org/imec/idlab/function#`.) Another function, a parameter that its
+function does not have, an output that it does not return, are `#ERROR` lines. Not
+translated: the functions of other libraries (a Java implementation given
+to an RML processor has no SPARQL counterpart, unless one writes it as a
+SPARQL-Generate `FUNCTION`), the GREL functions on arrays (`array_join`,
+`string_split`), functions with several outputs. The default term type of a
+function-valued object map is `rml:Literal`, with the datatype of the value of
+the expression (`xsd:integer` for `string_length`).
 
 ## Optimised translation
 
@@ -101,11 +128,14 @@ graph and every named graph (an expected error passes when an error is raised, w
 | RMLio/rml-test-cases@803dd3ec, XML | 38 | 37 | 1 |
 | kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
 | kg-construct/rml-cc@d97fddf, JSON and CSV | 35 | 35 | 0 |
+| kg-construct/rml-fnml@f573f79, CSV | 22 | 21 | 1 |
 
 The suites of the RML modules (KG-Construct) were measured on 2.4.1, and on the
 branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT) for what needs it:
 rml-cc passes 33 cases on 2.4.1, and its two CSV cases (referencing object maps
-as members) on the branch (commit `e62ab90`).
+as members) on the branch (commit `e62ab90`). The rml-fnml failure is a
+reference to a column that the CSV file does not have, an error that the
+generated query does not raise (as RML-Core 0002c).
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in

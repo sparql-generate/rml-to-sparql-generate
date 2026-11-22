@@ -61,7 +61,7 @@ TEMPLATE <templates/graphs.rqg>(?sm, ?pom, ?triples, ?mode, ?prefix, ?rf, ?diale
   WHERE {
     FILTER(?mode = "var")
     { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
-    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?e }
     BIND(MD5(IF(isBlank(?gt), afn:bnode(?gt), STR(?gt))) AS ?h)
   } GROUP BY ?h ?triples ?prefix .
 
@@ -76,7 +76,7 @@ TEMPLATE <templates/graphs.rqg>(?sm, ?pom, ?triples, ?mode, ?prefix, ?rf, ?diale
   WHERE {
     FILTER(?mode = "nested")
     { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
-    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?e }
   } GROUP BY ?gt ?triples ?rf ?dialect ?base .
 }
 WHERE { }

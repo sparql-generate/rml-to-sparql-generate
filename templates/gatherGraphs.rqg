@@ -36,7 +36,7 @@ TEMPLATE <templates/gatherGraphs.rqg>(?sm, ?pom, ?rf, ?dialect, ?base) {
   }
   WHERE {
     { ?sm (rr:graphMap|rmlc:graphMap) ?gt } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gt }
-    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?e }
+    FILTER EXISTS { ?gt (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?e }
   } GROUP BY ?gt ?rf ?dialect ?base .
 }
 WHERE { }

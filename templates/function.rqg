@@ -1,0 +1,27 @@
+# The SPARQL expression of function execution ?fe (RML-FNML: rml:function or
+# rml:functionMap, rml:input), from the pattern of its function
+# (iterators/functions.rqg): the text of the pattern, each %<name>% replaced by
+# the value of the input whose parameter has that local name
+# (templates/functionArg.rqg). An unknown function gives ?none (no value), and
+# an #ERROR line (templates/checks.rqg). The function has one output: rml:return
+# names it (checked, not used).
+#
+#   ?role, ?rf, ?dialect, ?base   as in templates/termMap.rqg: the references
+#                                 of the inputs are read from the variables of
+#                                 the term map in role ?role
+PREFIX rmlc: <http://w3id.org/rml/>
+PREFIX iter: <http://w3id.org/sparql-generate/iter/>
+
+TEMPLATE <templates/function.rqg>(?fe, ?role, ?rf, ?dialect, ?base) {
+  TEMPLATE {
+    ?seg
+    TEMPLATE <templates/functionArg.rqg>(?fe, ?pname, ?role, ?rf, ?dialect, ?base) WHERE { FILTER(?pname != "") } .
+  }
+  ITERATOR <iterators/functions.rqg>(?fn) AS ?pattern ?params ?outputs ?known
+  ITERATOR iter:regex(?pattern, "([^%]*)(%[A-Za-z0-9_]+%|$)", 1, 2) AS ?seg ?tok
+  WHERE { BIND(IF(STRLEN(?tok) > 0, SUBSTR(?tok, 2, STRLEN(?tok) - 2), "") AS ?pname) } .
+}
+WHERE {
+  OPTIONAL { ?fe (rmlc:function|rmlc:functionMap/rmlc:constant) ?fn0 }
+  BIND(COALESCE(?fn0, <urn:x-rml2sg:none>) AS ?fn)
+}
