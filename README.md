@@ -164,22 +164,26 @@ graph and every named graph (an expected error passes when an error is raised, w
 | RMLio/rml-test-cases@803dd3ec, JSON | 40 | 39 | 1 |
 | RMLio/rml-test-cases@803dd3ec, XML | 38 | 37 | 1 |
 | kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
-| kg-construct/rml-cc@d97fddf, JSON and CSV | 35 | 35 | 0 |
-| kg-construct/rml-fnml@f573f79, CSV | 22 | 21 | 1 |
-| kg-construct/rml-lv@94beb94, JSON and CSV | 41 | 40 | 1 |
-| kg-construct/rml-star@711f72e, CSV | 18 | 10 | 8 |
 
-The suites of the RML modules (KG-Construct) were measured on 2.4.1, and on the
-branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT) for what needs it:
-rml-cc passes 33 cases on 2.4.1, and its two CSV cases (referencing object maps
-as members) on the branch (commit `e62ab90`). The rml-fnml failure is a
-reference to a column that the CSV file does not have, an error that the
-generated query does not raise (as RML-Core 0002c). rml-lv passes 36 cases on
-2.4.1, 40 on the branch (the index key `#` of CSV sources); the failure is an
-inner join with a parent iteration whose field has no value (0010b).
-rml-star is compared after writing `<<( ... )>>` as `<< ... >>`; its 8 failures
-are the "two sources" cases, whose second CSV file starts with a line
-`**Input 1**` before the header: with that line removed, they pass.
+The suites of the RML modules (KG-Construct), measured by kgc-bench (`9b4215a`) on
+SPARQL-Generate 2.4.1 and on the branch `rml-modules` of SPARQL-Generate (2.4.2-SNAPSHOT,
+commit `6fb62b9`), which reads the row position of `iter:CSV` and compressed or
+UTF-16 files:
+
+| suite | cases | PASS on 2.4.1 | PASS on `rml-modules` |
+|---|---|---|---|
+| kg-construct/rml-cc@d97fddf | 35 | 33 | 35 |
+| kg-construct/rml-fnml@f573f79 | 22 | 21 | 21 |
+| kg-construct/rml-lv@94beb94 | 41 | 36 | 40 |
+| kg-construct/rml-star@711f72e | 18 | 18 | 18 |
+| kg-construct/rml-io@0cb26a2 | 73 | 20 | 24 |
+
+rml-cc and rml-lv need the row position for their CSV cases (gather maps over CSV,
+the index key `#`). The rml-fnml failure is a reference to a column that the CSV file
+does not have, an error that the generated query does not raise (as RML-Core 0002c);
+the rml-lv one an inner join with a parent iteration whose field has no value (0010b).
+rml-io: 23 of its 32 source cases pass; its 41 target cases (`rml:logicalTarget`), but
+one, fail: the output is not written to the target files (see above).
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in
