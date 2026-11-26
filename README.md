@@ -186,67 +186,35 @@ at commit `5fa291a`. Graph maps are translated into
 
 ## Conformance
 
-Measured by kgc-bench with SPARQL-Generate 2.4.0 before its release (branch
-`quad-patterns`, commit `8ba16cf`), by RDF dataset isomorphism with the expected output of each case, the default
-graph and every named graph (an expected error passes when an error is raised, with
+Measured by kgc-bench with SPARQL-Generate 2.6.0, by RDF dataset isomorphism with the
+expected output of each case, the default graph and every named graph; the logical
+targets are written to their files (`--graphs-to-files`, `--targets`) and compared with
+the expected `dumpN.*` files; an expected error passes when an error is raised (with
 `--fail-on-missing`):
 
 | suite | cases | PASS | FAIL |
 |---|---|---|---|
-| RMLio/rml-test-cases@803dd3ec, CSV | 39 | 38 | 1 |
-| RMLio/rml-test-cases@803dd3ec, JSON | 40 | 39 | 1 |
-| RMLio/rml-test-cases@803dd3ec, XML | 38 | 37 | 1 |
-| kg-construct/rml-core@82ab28d4, JSON | 76 | 73 | 3 |
-
-The suites of the RML modules (KG-Construct), measured by kgc-bench (`9b4215a`) on
-SPARQL-Generate 2.4.1 and on SPARQL-Generate 2.5.0 (released from the branch `rml-modules`,
-commit `6fb62b9`), which reads the row position of `iter:CSV` and compressed or
-UTF-16 files:
-
-| suite | cases | PASS on 2.4.1 | PASS on 2.5.0 |
-|---|---|---|---|
-| kg-construct/rml-cc@d97fddf | 35 | 33 | 35 |
-| kg-construct/rml-fnml@f573f79 | 22 | 21 | 21 |
-| kg-construct/rml-lv@94beb94 | 41 | 36 | 40 |
-| kg-construct/rml-star@711f72e | 18 | 18 | 18 |
-| kg-construct/rml-io@0cb26a2 | 73 | 20 | 24 |
-
-rml-cc and rml-lv need the row position for their CSV cases (gather maps over CSV,
-the index key `#`). The rml-fnml failure is a reference to a column that the CSV file
-does not have, an error that the generated query does not raise (as RML-Core 0002c);
-the rml-lv one an inner join with a parent iteration whose field has no value (0010b).
-rml-io: 23 of its 32 source cases pass; its 41 target cases (`rml:logicalTarget`), but
-one, fail: the output is not written to the target files (see above).
-
-With SPARQL-Generate 2.6.0 before its release (branch `next`: `RAISE`,
-`--graphs-to-files`, `--targets`), measured by kgc-bench in the same way, the targets
-written to their files and compared with the expected `dumpN.*` files:
-
-| suite | cases | PASS on 2.5.0 | PASS on 2.6.0 |
-|---|---|---|---|
-| RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 114 | 115 |
-| kg-construct/rml-core@82ab28d4 | 76 | 73 | 75 |
-| kg-construct/rml-io@0cb26a2 | 73 | 24 | 64 |
-| kg-construct/rml-fnml@f573f79 | 22 | 21 | 22 |
-| kg-construct/rml-cc@d97fddf | 35 | 35 | 35 |
-| kg-construct/rml-lv@94beb94 | 41 | 40 | 40 |
-| kg-construct/rml-star@711f72e | 18 | 18 | 18 |
+| RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 115 | 2 |
+| kg-construct/rml-core@82ab28d4 | 76 | 75 | 1 |
+| kg-construct/rml-io@0cb26a2 | 73 | 64 | 9 |
+| kg-construct/rml-fnml@f573f79 | 22 | 22 | 0 |
+| kg-construct/rml-cc@d97fddf | 35 | 35 | 0 |
+| kg-construct/rml-lv@94beb94 | 41 | 40 | 1 |
+| kg-construct/rml-star@711f72e | 18 | 18 | 0 |
 
 Every target case of rml-io passes (the 41 RMLTTC cases, UTF-16 with `--targets`); its
 9 failures are sources (SQL, SPARQL results, XPath namespaces, the empty CSV cell, CSV
-errors). The data errors that `RAISE` now raises: rml-test-cases 0002c-CSV (unknown
-column), rml-core 0019b (a value that is not an IRI) and 0025b (a reference to an
-array), rml-fnml 0101 (unknown column). Still not raised: a key or element absent from
-every JSON or XML record (rml-test-cases 0002c-JSON, 0002c-XML), which no RML engine
-raises either.
+errors). The generated queries raise the data errors with `RAISE`: an unknown CSV column
+(rml-test-cases 0002c-CSV, rml-fnml 0101), a value that is not an IRI (rml-core 0019b), a
+reference to an array (rml-core 0025b). Not raised: a key or element absent from every
+JSON or XML record (rml-test-cases 0002c-JSON, 0002c-XML), which no RML engine raises
+either. The rml-lv failure is an inner join with a parent iteration whose field has no
+value (0010b); the rml-core one, `rml:UnsafeIRI` values with spaces (0027b), which the
+engine rejects as IRIs (Jena's `IRI()`).
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in
-joins, and with JSONPath values in number other than one. The failures are errors that
-only the data reveal (an unknown column or file, a reference to an array, an invalid
-IRI), which the generated query does not raise, and `rml:UnsafeIRI` values with spaces,
-which the engine rejects as IRIs (Jena's `IRI()`, also behind `<...{?x}>`). A missing
-file is an error with `--fail-on-missing` (2.2.3).
+joins, and with JSONPath values in number other than one.
 
 ## History
 
