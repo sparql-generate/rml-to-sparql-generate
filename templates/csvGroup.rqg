@@ -22,7 +22,7 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
   ", one iteration of " ?srcText "\n  GENERATE \{\n"
 
   # the classes of each triples map
-  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, CONCAT("?s_", ?t, " a <", STR(?class), "> ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, CONCAT("?s_", ?t, " a <", STR(?class), "> ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
   WHERE {
     FILTER(?group = ?src)
@@ -30,7 +30,7 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
   # the triples of each pair of term maps, in their graphs (templates/graphs.rqg)
-  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, CONCAT("?s_", ?t, " ?p_", ?t, "_", ?key, " ?o_", ?t, "_", ?key, " ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, ?pt, ?ot, CONCAT("?s_", ?t, " ?p_", ?t, "_", ?key, " ?o_", ?t, "_", ?key, " ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
   ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE {

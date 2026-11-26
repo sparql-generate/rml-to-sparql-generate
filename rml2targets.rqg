@@ -1,0 +1,42 @@
+# rml2targets: the description of the logical targets of an RML mapping
+# (RML-IO), for the command line of SPARQL-Generate 2.6 or later. It is a
+# TEMPLATE query that reads the mapping as its default graph, as
+# rml2sparql-generate.rqg does, and writes a JSON object: for each target file,
+# its path relative to the base, and its format (rml:serialization),
+# compression and character encoding (rml:compression, rml:encoding).
+#
+#   java -jar sparql-generate.jar -d <dir> -q rml2targets.rqg -o targets.json
+#   java -jar sparql-generate.jar -d data -q generated.rqg -b <base IRI> \
+#        --targets targets.json -fo NQUADS
+#
+# The generated query writes the triples of each logical target in a named
+# graph named by the path of its file (templates/graphs.rqg); --targets (or
+# --graphs-to-files, for formats and compressions given by the extensions)
+# writes these graphs to their files.
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE {
+  "\{"
+  TEMPLATE { "\n  " ?key ": \{" ?fields " }" ; SEPARATOR = "," }
+  WHERE {
+    ?lt rmlc:target ?tg . ?tg rmlc:path ?p .
+    OPTIONAL { ?lt rmlc:serialization ?ser }
+    OPTIONAL { ?tg rmlc:compression ?cmp0 }
+    OPTIONAL { ?lt rmlc:compression ?cmp1 }
+    OPTIONAL { ?tg rmlc:encoding ?enc0 }
+    OPTIONAL { ?lt rmlc:encoding ?enc1 }
+    BIND(REPLACE(STR(?p), "^(\\./)+", "") AS ?path)
+    BIND(CONCAT("\"", REPLACE(REPLACE(?path, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\"") AS ?key)
+    # formats:N-Quads, formats:Turtle, formats:JSON-LD, formats:RDF_XML...
+    BIND(REPLACE(REPLACE(STR(?ser), "^.*[#/]", ""), "_", "/") AS ?format)
+    BIND(REPLACE(STR(COALESCE(?cmp0, ?cmp1)), "^.*[#/]", "") AS ?compression)
+    BIND(REPLACE(STR(COALESCE(?enc0, ?enc1)), "^.*[#/]", "") AS ?encoding)
+    BIND(CONCAT(
+      IF(BOUND(?format), CONCAT(" \"format\": \"", ?format, "\""), ""),
+      IF(BOUND(?format) && BOUND(?compression), ",", ""),
+      IF(BOUND(?compression), CONCAT(" \"compression\": \"", ?compression, "\""), ""),
+      IF((BOUND(?format) || BOUND(?compression)) && BOUND(?encoding), ",", ""),
+      IF(BOUND(?encoding), CONCAT(" \"encoding\": \"", ?encoding, "\""), "")) AS ?fields)
+  } ORDER BY ?key .
+  "\n}\n"
+}

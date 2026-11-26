@@ -21,7 +21,7 @@ PREFIX rmlc: <http://w3id.org/rml/>
 
 TEMPLATE <templates/joinInIteration.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?ptm, ?prf, ?dialect, ?base, ?pbase, ?x) {
   "    GENERATE \{ "
-  TEMPLATE <templates/graphs.rqg>(?sm, ?pom, CONCAT("?s ?pj_", ?x, " ?jo_", ?x, " ."), "var", "", "CSV", ?dialect, ?base) .
+  TEMPLATE <templates/graphs.rqg>(?sm, ?pom, ?pt, ?om, CONCAT("?s ?pj_", ?x, " ?jo_", ?x, " ."), "var", "", "CSV", ?dialect, ?base) .
   "}\n      "
   TEMPLATE <templates/iteration.rqg>(?ptm, "jparent", ?pom, ?om, ?prf) .
   "\n      "

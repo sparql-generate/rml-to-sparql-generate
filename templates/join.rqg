@@ -34,7 +34,7 @@ PREFIX rmlc: <http://w3id.org/rml/>
 TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?base, ?pbase) {
   "\n  # " ?tmText " → " ?ptmText "\n"
   "  GENERATE \{ "
-  TEMPLATE <templates/graphs.rqg>(?st, ?pom, "?s ?p ?o .", "var", "", ?rf, ?dialect, ?base) .
+  TEMPLATE <templates/graphs.rqg>(?st, ?pom, ?pt, ?om, "?s ?p ?o .", "var", "", ?rf, ?dialect, ?base) .
   "}\n"
   "  FROM GENERATE \{\n"
 

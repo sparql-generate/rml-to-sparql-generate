@@ -27,7 +27,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   # classes: (s, rdf:type, c)
   TEMPLATE {
     "    GENERATE \{ "
-    TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, ?classes, "nested", "", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, ?classes, "nested", "", ?rf, ?dialect, ?base) .
     "}\n    "
     TEMPLATE <templates/referenceIterators.rqg>(?sm, "", "s", ?rf, ?dialect) .
     "WHERE \{ "
@@ -45,7 +45,7 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   # predicate-object maps: (s, p, o)
   TEMPLATE {
     "    GENERATE \{ "
-    TEMPLATE <templates/graphs.rqg>(?st, ?pom, "?s ?p ?o .", "nested", "", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/graphs.rqg>(?st, ?pom, ?pt, ?ot, "?s ?p ?o .", "nested", "", ?rf, ?dialect, ?base) .
     "}\n    "
     TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
     TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) .
@@ -107,12 +107,12 @@ TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?base, ?gbase) {
   } .
 
   # CSV: the triples of the classes and of the predicate-object maps
-  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, CONCAT("?s a <", STR(?class), "> ."), "var", "", ?rf, ?dialect, ?base) . "\n" }
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, CONCAT("?s a <", STR(?class), "> ."), "var", "", ?rf, ?dialect, ?base) . "\n" }
   WHERE {
     FILTER(?rf = "CSV")
     ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
   } .
-  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, CONCAT("?s ?p_", ?key, " ?o_", ?key, " ."), "var", "", ?rf, ?dialect, ?base) . "\n" }
+  TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, ?pt, ?ot, CONCAT("?s ?p_", ?key, " ?o_", ?key, " ."), "var", "", ?rf, ?dialect, ?base) . "\n" }
   ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE { FILTER(?rf = "CSV") } .
   # CSV, a blank node subject without expression: its joins in its iteration
