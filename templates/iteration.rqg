@@ -9,6 +9,13 @@
 #             SPARQL results (RML-IO): iter:SPARQL(<file>, "<query>", "r1", ...)
 #             AS ?c_<md5(r1)> ..., one solution of the query per row, the
 #             references naming its variables, their values the RDF terms;
+#             a relational database (R2RML logical tables, D2RQ sources):
+#             iter:SQL("<JDBC URL>", "<effective SQL query>", "r1", ...) AS
+#             ?c_<md5(r1)> ..., one row of the result per solution, the
+#             references naming its columns, their values the natural RDF
+#             literals of R2RML (xsd:integer, xsd:double, xsd:dateTime...), a
+#             NULL unbound; a column that the result does not have, a query
+#             that the database rejects, stop the execution;
 #             read in batches of 10 000 rows (rewriting R4: the generated queries have
 #             no solution modifier, so a GENERATE gives the union of what each
 #             batch gives, and a streamed output is written batch by batch);
@@ -93,12 +100,14 @@ WHERE {
   # the position of the iteration, as ?ipos (gather maps)
   BIND(?scope IN ("tmpos", "parentpos") AS ?pos)
   BIND(IF(?pos, " ?ipos", "") AS ?posText)
-  # RML-IO: CSV read strictly; SPARQL results (rml2sparql-generate.rqg)
-  BIND(EXISTS { ?ls <urn:x-rml2sg:sparqlResults> true } AS ?sparql)
-  BIND(IF(?sparql, "iter:SPARQL", IF(EXISTS { ?tm rmlc:logicalSource ?anyls }, "iter:CSVStrict", "iter:CSV")) AS ?csvIter)
   BIND(IF(?scope = "jparent", "jc_", "c_") AS ?colvar)
   # without logical source (?rf "NONE"): no iterator
   OPTIONAL { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls }
+  # RML-IO: CSV read strictly; SPARQL results and relational databases
+  # (rml2sparql-generate.rqg)
+  BIND(EXISTS { ?ls <urn:x-rml2sg:sparqlResults> true } AS ?sparql)
+  BIND(EXISTS { ?ls <urn:x-rml2sg:sql> true } AS ?sql)
+  BIND(IF(?sql, "iter:SQL", IF(?sparql, "iter:SPARQL", IF(EXISTS { ?tm rmlc:logicalSource ?anyls }, "iter:CSVStrict", "iter:CSV"))) AS ?csvIter)
   BIND(EXISTS { ?tm rmlc:logicalSource/rmlc:viewOn ?anyv } AS ?view)
   OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
   # RML-IO: the null values of the source (rml:null), the columns then read as ?n<colvar>...
@@ -109,11 +118,13 @@ WHERE {
   BIND(COALESCE(STR(?p), STR(?src)) AS ?path)
   BIND(IF(REGEX(?path, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?path,
        IF(STRSTARTS(?path, "/"), CONCAT("file://", ?path), ?path)) AS ?iri)
-  BIND(CONCAT("<", REPLACE(?iri, " ", "%20"), ">") AS ?srcText)
+  # a database: its JDBC URL, as a string
+  BIND(IF(?sql, CONCAT("\"", REPLACE(REPLACE(REPLACE(?path, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\""),
+          CONCAT("<", REPLACE(?iri, " ", "%20"), ">")) AS ?srcText)
   OPTIONAL { ?ls (rml:iterator|rmlc:iterator) ?iterator0 }
   BIND(COALESCE(STR(?iterator0), IF(?rf = "JSONPath", "$", "/*")) AS ?iterator)
   BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?iterator, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?itText)
-  # the query of SPARQL results, on several lines: a long string
+  # the query of SPARQL results or of a database, on several lines: a long string
   BIND(CONCAT("\"\"\"", REPLACE(REPLACE(REPLACE(?iterator, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"\"\"") AS ?qText)
-  BIND(IF(?sparql, CONCAT(", ", ?qText), ", 10000") AS ?csvArgs)
+  BIND(IF(?sparql || ?sql, CONCAT(", ", ?qText), ", 10000") AS ?csvArgs)
 }

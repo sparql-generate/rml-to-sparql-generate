@@ -52,6 +52,7 @@ object map).
 | RML-IO sources: `rml:source` as a literal path, `rml:FilePath` and `rml:RelativePathSource` (`rml:path`, `rml:root`); `rml:null` | the file, relative to the base IRI; a value among the null values of the source is no value (CSV) |
 | RML-IO CSV sources (`http://w3id.org/rml/`) | `ITERATOR iter:CSVStrict(<file>, ...)` (SPARQL-Generate 2.6.1): an empty cell is the empty string, a row with another number of fields than the header is a data error |
 | RML-IO SPARQL results: `formats:SPARQL_Results_CSV` (`_JSON`, `_XML`, `_TSV`), the iterator a `SELECT` query over an RDF file | `ITERATOR iter:SPARQL(<file>, """<query>""", "var", ...)` (2.6.1): SPARQL-Generate runs the query itself, one row per solution, the references naming its variables |
+| relational databases: an R2RML logical table (`rr:logicalTable`, `rr:tableName`, `rr:sqlQuery`) or a logical source on a D2RQ database (`d2rq:Database`, `d2rq:jdbcDSN`, `d2rq:username`, `d2rq:password`) with `rr:tableName`, `rml:query`, or the RML-IO formulations `rml:SQL2008Table` and `rml:SQL2008Query` (the iterator is the table or the query) | `ITERATOR iter:SQL("<JDBC URL with the user and the password>", """<effective SQL query>""", "col", ...) AS ?c_...` (2.6.1): `SELECT * FROM <table>` (the name as written, a SQL identifier) or the query; the columns are the natural RDF literals of R2RML (`xsd:integer`, `xsd:decimal`, `xsd:double`, `xsd:boolean`, `xsd:date`, `xsd:time`, `xsd:dateTime`, `xsd:hexBinary`) for a literal without datatype or language, their lexical forms in templates; a `NULL` gives no term; an unknown column, a duplicate column name, a query that the database rejects stop the execution. A logical table without database uses the only database of the mapping |
 | RML-IO XPath with namespaces (`rml:XPathReferenceFormulation`, `rml:namespace`) | as `rml:XPath`: the prefixes are those that the document declares |
 | XPath references that leave the iterated element (`../@id`, `ancestor::`, sibling axes) | sub-queries of the iteration, `ITERATOR iter:XPath(<file>, "<iterator>", "../@id") AS ?it ?xp_...`, evaluated from the element in its document (2.6.1) |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
@@ -125,8 +126,9 @@ and with references that leave the iterated element, the empty CSV cell as a val
 and the errors of a CSV file with rows of the wrong length are translated for
 SPARQL-Generate 2.6.1 (`iter:SPARQL`, `iter:XPath` sub-queries, `iter:CSVStrict`;
 the mapping is first read as a graph where an XPath formulation with namespaces is
-`rml:XPath` and SPARQL results are `rml:CSV`). Not translated: sources that are not
-files (databases, SPARQL endpoints), namespace prefixes that the XML document does not
+`rml:XPath` and SPARQL results are `rml:CSV`). Relational databases are read by
+`iter:SQL` (2.6.1, which embeds the JDBC drivers of PostgreSQL, MySQL and SQL Server). Not
+translated: SPARQL endpoints, namespace prefixes that the XML document does not
 declare itself, and an encoding without byte order mark.
 
 Logical targets (RML-IO, SPARQL-Generate 2.6.0 or later). A triple whose subject map,
@@ -186,7 +188,8 @@ is enough.
 The translation needs SPARQL-Generate 2.6.1 or later for a mapping of the CSV sources of
 RML-Core and RML-IO (`http://w3id.org/rml/`), SPARQL results and XPath references that
 leave the iterated element (`iter:CSVStrict`, `iter:SPARQL`, relative `iter:XPath`
-sub-queries), and 2.6.0 or later otherwise: the generated queries use `RAISE` (data
+sub-queries) and for relational databases (`iter:SQL` with named columns and natural
+literals), and 2.6.0 or later otherwise: the generated queries use `RAISE` (data
 errors) and `iter:CSVHeaders` on a file. With 2.6.0, use the translator 0.3.0. With 2.4.0 to 2.5.0, use the translator
 at commit `5fa291a`. Graph maps are translated into
 `GRAPH` blocks of the `GENERATE` template (quad patterns), as are logical targets.
@@ -203,7 +206,8 @@ the expected `dumpN.*` files; an expected error passes when an error is raised (
 |---|---|---|---|
 | RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 115 | 2 |
 | kg-construct/rml-core@82ab28d4 | 76 | 75 | 1 |
-| kg-construct/rml-io@0cb26a2 | 73 | 64 (71 with 2.6.1) | 9 (2 with 2.6.1) |
+| kg-construct/rml-io@0cb26a2 | 73 | 64 (72 with 2.6.1) | 9 (1 with 2.6.1) |
+| RMLio/rml-test-cases@803dd3ec, SQL tracks (PostgreSQL, MySQL, SQL Server; 2.6.1) | 60 + 60 + 60 | 57, 58, 58 | 3, 2, 2 |
 | kg-construct/rml-fnml@f573f79 | 22 | 22 | 0 |
 | kg-construct/rml-cc@d97fddf | 35 | 35 | 0 |
 | kg-construct/rml-lv@94beb94 | 41 | 40 | 1 |
@@ -211,11 +215,15 @@ the expected `dumpN.*` files; an expected error passes when an error is raised (
 
 Every target case of rml-io passes (the 41 RMLTTC cases, UTF-16 with `--targets`); its
 9 failures with 2.6.0 are sources (SQL, SPARQL results, XPath namespaces, the empty CSV
-cell, CSV errors). With SPARQL-Generate 2.6.1 (branch `fix-2.6.1`), 2 remain: a D2RQ
-database (0006a: its DSN is a placeholder for a database that the runner of the test
-cases provides), and SPARQL results whose expected output types the plain literals of the
+cell, CSV errors). With SPARQL-Generate 2.6.1 (branch `fix-2.6.1`), 1 remains: SPARQL results whose expected output types the plain literals of the
 file as `xsd:integer` (0003: the query runs, the literals stay as they are). No other
-case changes status. The generated queries raise the data errors with `RAISE`: an unknown CSV column
+case changes status. The D2RQ database of 0006a and the SQL tracks of rml-test-cases
+run on PostgreSQL, MySQL and SQL Server containers started by kgc-bench (each case loads its
+`resource.sql`). Their failures are those of the cases: 0002f (references that differ
+from the column names in case only: an error expected, the columns are found regardless of
+case, as JDBC does; 0020a needs it), 0015a on PostgreSQL and MySQL (the query names a
+table `"Country"` that the script creates unquoted), 0016e on PostgreSQL and SQL Server
+(the script stores the text of the hexadecimal digits, not the bytes). The generated queries raise the data errors with `RAISE`: an unknown CSV column
 (rml-test-cases 0002c-CSV, rml-fnml 0101), a value that is not an IRI (rml-core 0019b), a
 reference to an array (rml-core 0025b). Not raised: a key or element absent from every
 JSON or XML record (rml-test-cases 0002c-JSON, 0002c-XML), which no RML engine raises

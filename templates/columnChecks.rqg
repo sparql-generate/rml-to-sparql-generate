@@ -42,8 +42,10 @@ WHERE {
   # (rr:graph [ ... ]) generates nothing, and raises no error (RMLTC0007h)
   FILTER NOT EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graph|rmlc:graph) ?bg FILTER(isBlank(?bg)) }
   ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
-  # SPARQL results have no header (rml2sparql-generate.rqg)
+  # SPARQL results have no header (rml2sparql-generate.rqg); iter:SQL checks
+  # the columns of the result of a database itself
   FILTER NOT EXISTS { ?ls <urn:x-rml2sg:sparqlResults> true }
+  FILTER NOT EXISTS { ?ls <urn:x-rml2sg:sql> true }
   OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
   OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p }
   BIND(COALESCE(STR(?p), STR(?src)) AS ?path)
