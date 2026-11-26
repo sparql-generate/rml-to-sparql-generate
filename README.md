@@ -117,17 +117,49 @@ Sources and targets (RML-IO). A compressed source (`rml:compression`: gzip, zip,
 tar.gz, tar.xz) and a source in UTF-16 with a byte order mark (`rml:encoding`) are
 read by SPARQL-Generate 2.5.0 or later, which decompresses local files by the
 extension of their name and transcodes them to UTF-8; 2.4.1 reads only gzip. Not
-translated: logical targets (`rml:logicalTarget`, `rml:LogicalTarget`,
-`rml:target`, serialization, compression, encoding of the output): a
-SPARQL-Generate query has one output, written by the command line; a target
-would need an output construct (a file per `GRAPH` block, or an output
-clause), which the language does not have. Nor sources that are not files
+translated: sources that are not files
 (databases, SPARQL endpoints, a SPARQL query over a file:
 `formats:SPARQL_Results_*`), XPath with namespaces
 (`rml:XPathReferenceFormulation`, `rml:namespace`) or with the parent axis
 (`..`, the iteration being the serialised element), an encoding without byte
 order mark, the empty CSV cell as a value (SPARQL-Generate reads it as no value),
 and the errors of a CSV file with rows of the wrong length.
+
+Logical targets (RML-IO, SPARQL-Generate 2.6.0 or later). A triple whose subject map,
+predicate map, object map, or language or datatype map has `rml:logicalTarget` is
+written in the file of each of its targets instead of the output, in each of its graphs;
+a graph map with `rml:logicalTarget` sends the quads of its graph to the files of its
+targets too. The file is a named graph whose IRI is the path of the target
+(`rml:target [ a rml:FilePath; rml:path "dump1.nq" ]`, relative to the base, whatever
+its `rml:root`): `GRAPH <dump1.nq> { ... }`, and a graph `g` inside the file is
+`GRAPH <dump1.nq#g=ENCODE_FOR_URI(g)> { ... }`. The command line writes these graphs to
+their files with `--graphs-to-files` (format and compression by extension), or with
+`--targets targets.json`, the description of the targets that the second query of this
+repository, `rml2targets.rqg`, generates from the mapping (`rml:serialization`,
+`rml:compression`, `rml:encoding`, UTF-16 for instance):
+
+```sh
+(cd work && java -jar sparql-generate.jar -d . -q rml2targets.rqg -o targets.json)
+java -jar sparql-generate.jar -d data -q generated.rqg -b http://example.com/base/ \
+     --targets work/targets.json -fo NQUADS
+```
+
+The files are written in the working directory (`-d`), which `-b` identifies with the
+base, or in the folder of a `file:` base.
+
+Data errors (SPARQL-Generate 2.6.0 or later). The generated query raises the errors
+that only the data reveal with `RAISE`, an expression of SPARQL-Generate 2.6 that stops
+the execution with a message (status 1 on the command line):
+
+- a reference to a column that the header of a CSV source does not have: one sub-query
+  per CSV triples map, before the triples maps, reads the header only
+  (`iter:CSVHeaders(<file>)`) and raises the error for a missing column
+  (`templates/columnChecks.rqg`; RML-Core and RML 1.x);
+- RML-Core: a JSONPath reference whose value is an array or an object, and the value of
+  a reference that is not a valid IRI for a term map of term type IRI or URI. RML 1.x
+  omits these terms, as its test cases expect.
+
+A reference that is absent from a JSON or XML record is no value, not an error.
 
 ## Optimised translation
 
@@ -147,9 +179,10 @@ the rows is the position that `iter:CSV` gives after the named columns (on an
 earlier version, the iteration has no solution). Over JSONPath and XPath sources, 2.4.0
 is enough.
 
-The translation needs SPARQL-Generate 2.4.0 or later: graph maps are translated into
-`GRAPH` blocks of the `GENERATE` template (quad patterns). The query generated from a
-mapping without graph maps has no `GRAPH` block, and also runs on 2.2.3 and later.
+The translation needs SPARQL-Generate 2.6.0 or later: the generated queries use `RAISE`
+(data errors) and `iter:CSVHeaders` on a file. With 2.4.0 to 2.5.0, use the translator
+at commit `5fa291a`. Graph maps are translated into
+`GRAPH` blocks of the `GENERATE` template (quad patterns), as are logical targets.
 
 ## Conformance
 
@@ -184,6 +217,28 @@ does not have, an error that the generated query does not raise (as RML-Core 000
 the rml-lv one an inner join with a parent iteration whose field has no value (0010b).
 rml-io: 23 of its 32 source cases pass; its 41 target cases (`rml:logicalTarget`), but
 one, fail: the output is not written to the target files (see above).
+
+With SPARQL-Generate 2.6.0 before its release (branch `next`: `RAISE`,
+`--graphs-to-files`, `--targets`), measured by kgc-bench in the same way, the targets
+written to their files and compared with the expected `dumpN.*` files:
+
+| suite | cases | PASS on 2.5.0 | PASS on 2.6.0 |
+|---|---|---|---|
+| RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 114 | 115 |
+| kg-construct/rml-core@82ab28d4 | 76 | 73 | 75 |
+| kg-construct/rml-io@0cb26a2 | 73 | 24 | 64 |
+| kg-construct/rml-fnml@f573f79 | 22 | 21 | 22 |
+| kg-construct/rml-cc@d97fddf | 35 | 35 | 35 |
+| kg-construct/rml-lv@94beb94 | 41 | 40 | 40 |
+| kg-construct/rml-star@711f72e | 18 | 18 | 18 |
+
+Every target case of rml-io passes (the 41 RMLTTC cases, UTF-16 with `--targets`); its
+9 failures are sources (SQL, SPARQL results, XPath namespaces, the empty CSV cell, CSV
+errors). The data errors that `RAISE` now raises: rml-test-cases 0002c-CSV (unknown
+column), rml-core 0019b (a value that is not an IRI) and 0025b (a reference to an
+array), rml-fnml 0101 (unknown column). Still not raised: a key or element absent from
+every JSON or XML record (rml-test-cases 0002c-JSON, 0002c-XML), which no RML engine
+raises either.
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in

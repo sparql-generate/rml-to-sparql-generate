@@ -7,6 +7,10 @@
 # XPath: the iteration ?it is the serialised element, re-parsed by the
 # iterator, so a relative path r becomes "/*/r"; a path to an element reads
 # its text.
+# RML-Core, JSONPath: the auxiliary query "$[*]" gives ?<role>_ct<md5(r)>, the
+# first member of a value that is an array or an object, and "[]" for a
+# scalar: a reference to an array or an object is a data error
+# (templates/termMap.rqg, RAISE).
 PREFIX iter: <http://w3id.org/sparql-generate/iter/>
 
 TEMPLATE <templates/referenceIterator.rqg>(?r, ?role, ?rf, ?dialect) {
@@ -21,10 +25,11 @@ WHERE {
   BIND(IF(REGEX(?xpath0, "(@[^/]*|\\)|text\\(\\))$"), ?xpath0, CONCAT(?xpath0, "/text()")) AS ?xpath)
   BIND(IF(?rf = "JSONPath", ?jsonPath, ?xpath) AS ?path)
   BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?path, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?pathText)
+  BIND(?rf = "JSONPath" && ?dialect = "rmlc" AS ?container)
   BIND(IF(?rf = "JSONPath",
-          CONCAT("iter:JSONPath(?it, ", ?pathText, ", \"$\")"),
+          CONCAT("iter:JSONPath(?it, ", ?pathText, ", \"$\"", IF(?container, ", \"$[*]\"", ""), ")"),
           CONCAT("iter:XPath(?it, ", ?pathText, ")")) AS ?call)
   BIND(IF(?rf = "JSONPath",
-          CONCAT("?", ?role, "_raw", ?h, " ?", ?role, "_", ?h),
+          CONCAT("?", ?role, "_raw", ?h, " ?", ?role, "_", ?h, IF(?container, CONCAT(" ?", ?role, "_ct", ?h), "")),
           CONCAT("?", ?role, "_", ?h)) AS ?vars)
 }

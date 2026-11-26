@@ -25,6 +25,11 @@ TEMPLATE {
   "PREFIX fun: <http://w3id.org/sparql-generate/fn/>\n"
   "\nGENERATE \{\n"
 
+  # data errors of the CSV sources: a reference to a column that the header
+  # does not have (templates/columnChecks.rqg)
+  TEMPLATE { TEMPLATE <templates/columnChecks.rqg>(?tm, ?rf) . }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group .
+
   # each triples map alone, or (rewriting R3, README.md) the triples maps of a shared CSV
   # source in one iteration
   TEMPLATE { TEMPLATE <templates/triplesMap.rqg>(?tm, ?rf, ?dialect, ?tmbase, ?base) . }

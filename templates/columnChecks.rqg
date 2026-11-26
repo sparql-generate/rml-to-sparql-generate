@@ -1,0 +1,52 @@
+# A data error of a CSV source: a reference to a column that the header of
+# the source does not have (RMLTC0002c, RMLFNMLTC0101). For a triples map ?tm
+# over a CSV file (not a logical view), a sub-query reads the header of the
+# file only (iter:CSVHeaders on its IRI, SPARQL-Generate 2.6), and RAISEs an
+# error for the first column of the iteration (iterators/references.rqg) that
+# it does not have:
+#
+#   GENERATE { } ITERATOR iter:CSVHeaders(<file>) AS ?column_ WHERE { }
+#   GROUP BY ?nogroup_ HAVING (true && (SUM(IF(STR(?column_) = "c", 1, 0)) > 0
+#                                       || RAISE("...", "c", <file>)) ...) .
+#
+# A triples map without reference, or whose subject map names a graph that is
+# not an IRI (it generates nothing), is not checked.
+# A cell of an existing column that is empty is no value, not an error; a
+# missing file reads no header, and raises no error here (--fail-on-missing).
+# The sub-queries come before the triples maps: the error stops the execution
+# before any triple of the source is generated.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/columnChecks.rqg>(?tm, ?rf) {
+  "\n  # the columns of " ?srcText
+  "\n  GENERATE \{ } ITERATOR iter:CSVHeaders(" ?srcText ") AS ?column_ WHERE \{ } GROUP BY ?nogroup_ HAVING (true"
+  TEMPLATE { "\n    && (SUM(IF(STR(?column_) = " ?col ", 1, 0)) > 0 || RAISE(\"RML data error: no such column in the header of the source\", " ?col ", " ?srcText "))" }
+  ITERATOR <iterators/references.rqg>("tm", ?tm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+  WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
+  ") .\n"
+}
+WHERE {
+  FILTER(?rf = "CSV")
+  FILTER NOT EXISTS { ?tm rmlc:logicalSource/rmlc:viewOn ?anyv }
+  # a triples map with a reference (else there is no column to check)
+  FILTER EXISTS {
+    { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
+    UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
+    UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap) ?t }
+    UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rmlc:languageMap|rmlc:datatypeMap) ?t }
+    ?t (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)*/(rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?x
+  }
+  # a triples map whose subject map names a graph that is not an IRI
+  # (rr:graph [ ... ]) generates nothing, and raises no error (RMLTC0007h)
+  FILTER NOT EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graph|rmlc:graph) ?bg FILTER(isBlank(?bg)) }
+  ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
+  OPTIONAL { ?ls (rml:source|rmlc:source) ?src . FILTER(isLiteral(?src)) }
+  OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p }
+  BIND(COALESCE(STR(?p), STR(?src)) AS ?path)
+  FILTER(BOUND(?path))
+  BIND(IF(REGEX(?path, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?path,
+       IF(STRSTARTS(?path, "/"), CONCAT("file://", ?path), ?path)) AS ?iri)
+  BIND(CONCAT("<", REPLACE(?iri, " ", "%20"), ">") AS ?srcText)
+}

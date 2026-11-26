@@ -17,6 +17,12 @@
 # iterators of templates/referenceIterators.rqg). The lexical form is bound
 # first to ?l_<role>, then the term. A term that cannot be built (invalid
 # IRI, missing value) leaves ?<role> unbound, and the triple is not generated.
+#
+# RML-Core (?dialect "rmlc") makes two data errors of the values errors of the
+# execution, with RAISE (SPARQL-Generate 2.6): a JSONPath reference to an array
+# or an object (RMLTC0025b), and the value of a reference that is not a valid
+# IRI for a term map of term type IRI or URI (RMLTC0019b). RML 1.x omits the
+# term, as the old test cases expect.
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
@@ -44,7 +50,10 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
     # for a literal without language or datatype; RML 1.x reads strings
     BIND(IF(?dialect = "rmlc" && ?tt = "Literal" && !BOUND(?lang) && !BOUND(?lm)
             && !BOUND(?dt) && !BOUND(?dm) && ?kind = "object",
-            ?var, CONCAT("STR(", ?var, ")")) AS ?lexical)
+            ?var, CONCAT("STR(", ?var, ")")) AS ?lexical0)
+    BIND(IF(?dialect = "rmlc" && ?rf = "JSONPath",
+            CONCAT("IF(STR(COALESCE(?", ?role, "_ct", MD5(?r), ", \"[]\")) != \"[]\", RAISE(\"RML data error: the reference gives an array or an object\", ", ?rText, ", ", ?var, "), ", ?lexical0, ")"),
+            ?lexical0) AS ?lexical)
   } .
 
   # lexical form of a template-valued term map
@@ -96,7 +105,11 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
       IF(BOUND(?lm), CONCAT("STRLANG(", ?sl, ", ?", ?role, "lang)"),
       IF(BOUND(?dt), CONCAT("STRDT(", ?sl, ", <", STR(?dt), ">)"),
       IF(BOUND(?dm), CONCAT("STRDT(", ?sl, ", ?", ?role, "dt)"),
-      ?l)))))))) AS ?term0)
+      ?l)))))))) AS ?term1)
+    # RML-Core: the value of a reference that is not a valid IRI is a data error
+    BIND(IF(?dialect = "rmlc" && BOUND(?r) && (?tt = "IRI" || ?tt = "URI") && ?kind != "key" && ?kind != "language",
+            CONCAT("COALESCE(", ?term1, ", IF(BOUND(", ?l, "), RAISE(\"RML data error: the value of the reference is not a valid IRI\", ", ?rText, ", ", ?l, "), ?none))"),
+            ?term1) AS ?term0)
     BIND(IF(BOUND(?cond), CONCAT("IF(?cond_", ?role, ", ", ?term0, ", ?none)"), ?term0) AS ?term)
   } .
 
@@ -111,6 +124,7 @@ WHERE {
   BIND(IF(?const != <urn:x-rml2sg:none>, ?const, ?c0) AS ?c)
   OPTIONAL { ?t (rml:reference|rmlc:reference|rr:column) ?r0 }
   BIND(COALESCE(STR(?r0), IF(?ref != "", ?ref, ?none)) AS ?r)
+  BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?rText)
   OPTIONAL { ?t (rr:template|rmlc:template) ?tpl0 }
   BIND(STR(?tpl0) AS ?tpl)
   OPTIONAL { ?t rmlc:functionExecution ?fe }
