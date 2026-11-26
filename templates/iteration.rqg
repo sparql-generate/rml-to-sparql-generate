@@ -3,11 +3,20 @@
 #   CSV       ITERATOR iter:CSV(<file>, 10000, "r1", ..., "rn") AS ?c_<md5(r1)> ...
 #             one solution per row, binding the columns used by the term maps
 #             of ?scope (see iterators/pieces.rqg); an empty cell is unbound;
+#             RML-IO (http://w3id.org/rml/): iter:CSVStrict, where an empty
+#             cell is the empty string and a row whose number of fields is not
+#             that of the header is a data error;
+#             SPARQL results (RML-IO): iter:SPARQL(<file>, "<query>", "r1", ...)
+#             AS ?c_<md5(r1)> ..., one solution of the query per row, the
+#             references naming its variables, their values the RDF terms;
 #             read in batches of 10 000 rows (rewriting R4: the generated queries have
 #             no solution modifier, so a GENERATE gives the union of what each
 #             batch gives, and a streamed output is written batch by batch);
 #   JSONPath  ITERATOR iter:JSONPath(<file>, "<iterator>") AS ?it
-#   XPath     ITERATOR iter:XPath(<file>, "<iterator>") AS ?it
+#   XPath     ITERATOR iter:XPath(<file>, "<iterator>", "r1", ...) AS ?it ?xp_<md5(r1)> ...
+#             the references that leave the iterated node (parent, ancestor,
+#             sibling axes: "../@id") evaluated from the node in its document,
+#             as sub-queries of the iteration (templates/referenceIterator.rqg);
 #
 # The file is named by an IRI: relative paths are resolved against the BASE of
 # the generated query, which the command line maps to the working directory
@@ -20,7 +29,7 @@ PREFIX iter: <http://w3id.org/sparql-generate/iter/>
 TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
 
   TEMPLATE {
-    "ITERATOR iter:CSV(" ?srcText ", 10000"
+    "ITERATOR " ?csvIter "(" ?srcText ?csvArgs
     TEMPLATE { ", " ?col }
     ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r
     WHERE { BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?col) } .
@@ -61,8 +70,21 @@ TEMPLATE <templates/iteration.rqg>(?tm, ?scope, ?pom, ?om, ?rf) {
   TEMPLATE { "ITERATOR iter:JSONPath(" ?srcText ", " ?itText ") AS ?it" ?posText }
   WHERE { FILTER(?rf = "JSONPath") } .
 
-  TEMPLATE { "ITERATOR iter:XPath(" ?srcText ", " ?itText ") AS ?it" ?posText }
-  WHERE { FILTER(?rf = "XPath") } .
+  TEMPLATE {
+    "ITERATOR iter:XPath(" ?srcText ", " ?itText
+    TEMPLATE { ", " ?subText }
+    ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r
+    WHERE {
+      FILTER(REGEX(?r, "(^|/)\\.\\.(/|$)|(parent|ancestor|ancestor-or-self|preceding|following|preceding-sibling|following-sibling)::"))
+      BIND(IF(REGEX(?r, "(@[^/]*|\\)|text\\(\\))$"), ?r, CONCAT(?r, "/text()")) AS ?sub)
+      BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?sub, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?subText)
+    } .
+    ") AS ?it"
+    TEMPLATE { " ?xp_" MD5(?r) }
+    ITERATOR <iterators/references.rqg>(?rscope, ?tm, ?pom, ?om) AS ?r
+    WHERE { FILTER(REGEX(?r, "(^|/)\\.\\.(/|$)|(parent|ancestor|ancestor-or-self|preceding|following|preceding-sibling|following-sibling)::")) } .
+    ?posText
+  } WHERE { FILTER(?rf = "XPath") } .
 }
 WHERE {
   # "jparent": the parent iterated inside its child's iteration, its columns
@@ -71,6 +93,9 @@ WHERE {
   # the position of the iteration, as ?ipos (gather maps)
   BIND(?scope IN ("tmpos", "parentpos") AS ?pos)
   BIND(IF(?pos, " ?ipos", "") AS ?posText)
+  # RML-IO: CSV read strictly; SPARQL results (rml2sparql-generate.rqg)
+  BIND(EXISTS { ?ls <urn:x-rml2sg:sparqlResults> true } AS ?sparql)
+  BIND(IF(?sparql, "iter:SPARQL", IF(EXISTS { ?tm rmlc:logicalSource ?anyls }, "iter:CSVStrict", "iter:CSV")) AS ?csvIter)
   BIND(IF(?scope = "jparent", "jc_", "c_") AS ?colvar)
   # without logical source (?rf "NONE"): no iterator
   OPTIONAL { ?tm (rml:logicalSource|rmlc:logicalSource) ?ls }
@@ -88,4 +113,7 @@ WHERE {
   OPTIONAL { ?ls (rml:iterator|rmlc:iterator) ?iterator0 }
   BIND(COALESCE(STR(?iterator0), IF(?rf = "JSONPath", "$", "/*")) AS ?iterator)
   BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?iterator, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?itText)
+  # the query of SPARQL results, on several lines: a long string
+  BIND(CONCAT("\"\"\"", REPLACE(REPLACE(REPLACE(?iterator, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"\"\"") AS ?qText)
+  BIND(IF(?sparql, CONCAT(", ", ?qText), ", 10000") AS ?csvArgs)
 }

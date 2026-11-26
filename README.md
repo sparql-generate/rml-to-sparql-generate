@@ -50,6 +50,10 @@ object map).
 | logical views (RML-LV): `rml:LogicalView`, `rml:viewOn` (a logical source or another view), `rml:field` (`rml:ExpressionField` with `rml:reference`, `rml:template` or `rml:constant`; `rml:IterableField` with `rml:iterator`; nested fields, `rml:referenceFormulation` to change formulation: JSON in CSV, CSV in JSON), the index keys `#` and `<field>.#`, `rml:leftJoin` and `rml:innerJoin` (`rml:parentLogicalView`, `rml:joinCondition` with `rml:child`/`rml:parent` or `rml:childMap`/`rml:parentMap`, joined fields) | the iteration of the view as binding clauses: one iterator per field, nested over the records of its parent (one solution per logical view iteration), each key bound to a variable that the term maps read as a CSV column; a join is a `FROM GENERATE` of the parent view's iterations, matched in the `WHERE` clause (`OPTIONAL` for a left join) |
 | RML-star: `rml:quotedTriplesMap` in a subject map or an object map (star maps), on the same logical source or with `rml:joinCondition`, nested quoted triples, `rml:AssertedTriplesMap`, `rml:NonAssertedTriplesMap` | the triple term `afn:triple(s, p, o)` (Jena, RDF 1.2) of the terms of the quoted triples map on the same iteration; with a join, a `FROM GENERATE` of the quoted triples of the other source, matched in the `WHERE` clause; a non-asserted triples map generates no triple of its own |
 | RML-IO sources: `rml:source` as a literal path, `rml:FilePath` and `rml:RelativePathSource` (`rml:path`, `rml:root`); `rml:null` | the file, relative to the base IRI; a value among the null values of the source is no value (CSV) |
+| RML-IO CSV sources (`http://w3id.org/rml/`) | `ITERATOR iter:CSVStrict(<file>, ...)` (SPARQL-Generate 2.6.1): an empty cell is the empty string, a row with another number of fields than the header is a data error |
+| RML-IO SPARQL results: `formats:SPARQL_Results_CSV` (`_JSON`, `_XML`, `_TSV`), the iterator a `SELECT` query over an RDF file | `ITERATOR iter:SPARQL(<file>, """<query>""", "var", ...)` (2.6.1): SPARQL-Generate runs the query itself, one row per solution, the references naming its variables |
+| RML-IO XPath with namespaces (`rml:XPathReferenceFormulation`, `rml:namespace`) | as `rml:XPath`: the prefixes are those that the document declares |
+| XPath references that leave the iterated element (`../@id`, `ancestor::`, sibling axes) | sub-queries of the iteration, `ITERATOR iter:XPath(<file>, "<iterator>", "../@id") AS ?it ?xp_...`, evaluated from the element in its document (2.6.1) |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
 
 Blank nodes. RML gives one blank node per value, across iterations and
@@ -116,14 +120,14 @@ A `rml:quotedTriplesMap` outside a subject map or an object map is an `#ERROR`.
 Sources and targets (RML-IO). A compressed source (`rml:compression`: gzip, zip,
 tar.gz, tar.xz) and a source in UTF-16 with a byte order mark (`rml:encoding`) are
 read by SPARQL-Generate 2.5.0 or later, which decompresses local files by the
-extension of their name and transcodes them to UTF-8; 2.4.1 reads only gzip. Not
-translated: sources that are not files
-(databases, SPARQL endpoints, a SPARQL query over a file:
-`formats:SPARQL_Results_*`), XPath with namespaces
-(`rml:XPathReferenceFormulation`, `rml:namespace`) or with the parent axis
-(`..`, the iteration being the serialised element), an encoding without byte
-order mark, the empty CSV cell as a value (SPARQL-Generate reads it as no value),
-and the errors of a CSV file with rows of the wrong length.
+extension of their name and transcodes them to UTF-8; 2.4.1 reads only gzip. A SPARQL query over a file (`formats:SPARQL_Results_*`), XPath with namespaces
+and with references that leave the iterated element, the empty CSV cell as a value
+and the errors of a CSV file with rows of the wrong length are translated for
+SPARQL-Generate 2.6.1 (`iter:SPARQL`, `iter:XPath` sub-queries, `iter:CSVStrict`;
+the mapping is first read as a graph where an XPath formulation with namespaces is
+`rml:XPath` and SPARQL results are `rml:CSV`). Not translated: sources that are not
+files (databases, SPARQL endpoints), namespace prefixes that the XML document does not
+declare itself, and an encoding without byte order mark.
 
 Logical targets (RML-IO, SPARQL-Generate 2.6.0 or later). A triple whose subject map,
 predicate map, object map, or language or datatype map has `rml:logicalTarget` is
@@ -179,8 +183,11 @@ the rows is the position that `iter:CSV` gives after the named columns (on an
 earlier version, the iteration has no solution). Over JSONPath and XPath sources, 2.4.0
 is enough.
 
-The translation needs SPARQL-Generate 2.6.0 or later: the generated queries use `RAISE`
-(data errors) and `iter:CSVHeaders` on a file. With 2.4.0 to 2.5.0, use the translator
+The translation needs SPARQL-Generate 2.6.1 or later for a mapping of the CSV sources of
+RML-Core and RML-IO (`http://w3id.org/rml/`), SPARQL results and XPath references that
+leave the iterated element (`iter:CSVStrict`, `iter:SPARQL`, relative `iter:XPath`
+sub-queries), and 2.6.0 or later otherwise: the generated queries use `RAISE` (data
+errors) and `iter:CSVHeaders` on a file. With 2.6.0, use the translator 0.3.0. With 2.4.0 to 2.5.0, use the translator
 at commit `5fa291a`. Graph maps are translated into
 `GRAPH` blocks of the `GENERATE` template (quad patterns), as are logical targets.
 
@@ -196,15 +203,19 @@ the expected `dumpN.*` files; an expected error passes when an error is raised (
 |---|---|---|---|
 | RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 115 | 2 |
 | kg-construct/rml-core@82ab28d4 | 76 | 75 | 1 |
-| kg-construct/rml-io@0cb26a2 | 73 | 64 | 9 |
+| kg-construct/rml-io@0cb26a2 | 73 | 64 (71 with 2.6.1) | 9 (2 with 2.6.1) |
 | kg-construct/rml-fnml@f573f79 | 22 | 22 | 0 |
 | kg-construct/rml-cc@d97fddf | 35 | 35 | 0 |
 | kg-construct/rml-lv@94beb94 | 41 | 40 | 1 |
 | kg-construct/rml-star@711f72e | 18 | 18 | 0 |
 
 Every target case of rml-io passes (the 41 RMLTTC cases, UTF-16 with `--targets`); its
-9 failures are sources (SQL, SPARQL results, XPath namespaces, the empty CSV cell, CSV
-errors). The generated queries raise the data errors with `RAISE`: an unknown CSV column
+9 failures with 2.6.0 are sources (SQL, SPARQL results, XPath namespaces, the empty CSV
+cell, CSV errors). With SPARQL-Generate 2.6.1 (branch `fix-2.6.1`), 2 remain: a D2RQ
+database (0006a: its DSN is a placeholder for a database that the runner of the test
+cases provides), and SPARQL results whose expected output types the plain literals of the
+file as `xsd:integer` (0003: the query runs, the literals stay as they are). No other
+case changes status. The generated queries raise the data errors with `RAISE`: an unknown CSV column
 (rml-test-cases 0002c-CSV, rml-fnml 0101), a value that is not an IRI (rml-core 0019b), a
 reference to an array (rml-core 0025b). Not raised: a key or element absent from every
 JSON or XML record (rml-test-cases 0002c-JSON, 0002c-XML), which no RML engine raises

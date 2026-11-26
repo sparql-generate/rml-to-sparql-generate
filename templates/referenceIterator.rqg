@@ -6,7 +6,8 @@
 # datatype (number, boolean, string).
 # XPath: the iteration ?it is the serialised element, re-parsed by the
 # iterator, so a relative path r becomes "/*/r"; a path to an element reads
-# its text.
+# its text. A path that leaves the element (../@id) is read by the iteration
+# itself, from the element in its document.
 # RML-Core, JSONPath: the auxiliary query "$[*]" gives ?<role>_ct<md5(r)>, the
 # first member of a value that is an array or an object, and "[]" for a
 # scalar: a reference to an array or an object is a data error
@@ -14,7 +15,7 @@
 PREFIX iter: <http://w3id.org/sparql-generate/iter/>
 
 TEMPLATE <templates/referenceIterator.rqg>(?r, ?role, ?rf, ?dialect) {
-  "ITERATOR " ?call " AS " ?vars "\n    "
+  ?clause "\n    "
 }
 WHERE {
   BIND(MD5(?r) AS ?h)
@@ -32,4 +33,9 @@ WHERE {
   BIND(IF(?rf = "JSONPath",
           CONCAT("?", ?role, "_raw", ?h, " ?", ?role, "_", ?h, IF(?container, CONCAT(" ?", ?role, "_ct", ?h), "")),
           CONCAT("?", ?role, "_", ?h)) AS ?vars)
+  # XPath: a reference that leaves the iterated node (parent, ancestor,
+  # sibling axes) is a sub-query of the iteration, ?xp_<md5(r)>
+  # (templates/iteration.rqg): the serialised element has no parent
+  BIND(?rf = "XPath" && REGEX(?r, "(^|/)\\.\\.(/|$)|(parent|ancestor|ancestor-or-self|preceding|following|preceding-sibling|following-sibling)::") AS ?outside)
+  BIND(IF(?outside, CONCAT("BIND(?xp_", ?h, " AS ?", ?role, "_", ?h, ")"), CONCAT("ITERATOR ", ?call, " AS ", ?vars)) AS ?clause)
 }
