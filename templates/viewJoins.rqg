@@ -9,7 +9,8 @@
 #   ?part = "patterns"  in the WHERE clause: the child side of each join
 #                       condition, then the records with equal keys (OPTIONAL
 #                       for a left join), which bind the fields of J as keys of
-#                       ?view (?c_<md5(name)>, ?c_<md5(name.#)>)
+#                       ?view (?c_<md5(name)>, ?c_<md5(name.#)>), each OPTIONAL:
+#                       a null field of the parent leaves its key unbound
 #
 # Keys are compared as strings; a child key without value joins nothing.
 PREFIX rmlc: <http://w3id.org/rml/>
@@ -35,7 +36,7 @@ TEMPLATE <templates/viewJoins.rqg>(?view, ?part) {
       } WHERE {
         ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv)
         OPTIONAL { ?jf rmlc:reference ?jr }
-        BIND(IF(BOUND(?jr), CONCAT("COALESCE(?p_", MD5(CONCAT(STR(?jr), ".#")), ", 0)"), "0") AS ?indexText)
+        BIND(IF(BOUND(?jr), CONCAT("IF(BOUND(?f", ?hv, "), COALESCE(?p_", MD5(CONCAT(STR(?jr), ".#")), ", 0), ?none)"), "0") AS ?indexText)
       } .
       "BIND(BNODE() AS ?r) } .\n"
     }
@@ -53,7 +54,7 @@ TEMPLATE <templates/viewJoins.rqg>(?view, ?part) {
     "\n  " ?open
     TEMPLATE { " ?lvr" ?J " <urn:x-rml2sg:lvk_" ?J "_" ?h "> ?lvx" ?J "_" ?h " . FILTER(?lvx" ?J "_" ?h " = ?lvk" ?J "_" ?h ")" }
     ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
-    TEMPLATE { " ?lvr" ?J " <urn:x-rml2sg:lvf_" ?J "_" ?hv "> ?c_" ?hv " ; <urn:x-rml2sg:lvi_" ?J "_" ?hv "> ?c_" ?hi " ." }
+    TEMPLATE { " OPTIONAL \{ ?lvr" ?J " <urn:x-rml2sg:lvf_" ?J "_" ?hv "> ?c_" ?hv " } OPTIONAL \{ ?lvr" ?J " <urn:x-rml2sg:lvi_" ?J "_" ?hv "> ?c_" ?hi " }" }
     WHERE { ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv) BIND(MD5(CONCAT(STR(?n), ".#")) AS ?hi) } .
     ?close
   }

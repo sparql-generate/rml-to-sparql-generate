@@ -37,7 +37,7 @@ object map).
 | `ql:JSONPath` / `rml:JSONPath` | `ITERATOR iter:JSONPath(<file>, "<iterator>") AS ?it`, then one `ITERATOR iter:JSONPath(?it, "<ref>", "$")` per reference: a multi-valued reference gives one term per value |
 | `ql:XPath` / `rml:XPath` | `ITERATOR iter:XPath(<file>, "<iterator>") AS ?it`, then one `ITERATOR iter:XPath(?it, "/*/<ref>/text()")` per reference |
 | `rr:constant`, `rml:reference`, `rr:template` (escapes `\{ \} \\`) | constants, variables, `CONCAT(...)` |
-| term types `IRI` (IRI-safe encoding, exact on non-ASCII), `URI`, `UnsafeIRI`, `Literal`, `BlankNode` | `IRI(...)` with base-IRI concatenation, `STRLANG`, `STRDT`, `fun:bnode(...)` |
+| term types `IRI` (IRI-safe encoding, exact on non-ASCII), `URI`, `UnsafeIRI`, `UnsafeURI`, `Literal`, `BlankNode` | `IRI(...)` with base-IRI concatenation; `UnsafeIRI` and `UnsafeURI`: `fun:unsafeIRI(...)` (2.6.1), the string as it is, unchecked (it may hold spaces); `STRLANG`, `STRDT`, `fun:bnode(...)` |
 | `rr:language`, `rr:datatype`, `rml:languageMap`, `rml:datatypeMap` | `STRLANG`, `STRDT` |
 | `rr:class`, shortcuts `rr:subject`/`rr:predicate`/`rr:object`/`rr:graph` | yes |
 | referencing object map, same logical source, no join | the parent's subject, on the same iteration |
@@ -47,12 +47,12 @@ object map).
 | gather maps (RML-CC, `http://w3id.org/rml/`): `rml:gather`, `rml:gatherAs` (`rdf:List`, `rdf:Bag`, `rdf:Seq`, `rdf:Alt`), `rml:strategy` (`rml:append`, `rml:cartesianProduct`), `rml:allowEmptyListAndContainer`, in a subject map or an object map, nested gather maps, named collections (`rml:template`, `rml:reference`, `rml:constant`, IRI or blank node), members that are referencing object maps, with graph maps | one sub-query per gather map at the top level: a `FROM GENERATE` iterates over the logical source and records each element of each collection with an order key (position of the iteration, member, positions of the values), then the cells (`rdf:first`, `rdf:rest`, `rdf:_n`) are built from the rank of each element in its collection (see below) |
 | function-valued term maps (RML-FNML): `rml:functionExecution`, `rml:function` or `rml:functionMap`, `rml:input` with `rml:parameter` or `rml:parameterMap`, `rml:inputValue` or `rml:inputValueMap` (reference, template, constant, function: composition), `rml:return` or `rml:returnMap`; in any term map, language and datatype maps included; `rml:condition` | the SPARQL expression of the function (see below), in place of the lexical form of the term map; a condition gives the term only when it is true |
 | a triples map without logical source, of constant term maps (RML-FNML) | a sub-query without iterator, evaluated once |
-| logical views (RML-LV): `rml:LogicalView`, `rml:viewOn` (a logical source or another view), `rml:field` (`rml:ExpressionField` with `rml:reference`, `rml:template` or `rml:constant`; `rml:IterableField` with `rml:iterator`; nested fields, `rml:referenceFormulation` to change formulation: JSON in CSV, CSV in JSON), the index keys `#` and `<field>.#`, `rml:leftJoin` and `rml:innerJoin` (`rml:parentLogicalView`, `rml:joinCondition` with `rml:child`/`rml:parent` or `rml:childMap`/`rml:parentMap`, joined fields) | the iteration of the view as binding clauses: one iterator per field, nested over the records of its parent (one solution per logical view iteration), each key bound to a variable that the term maps read as a CSV column; a join is a `FROM GENERATE` of the parent view's iterations, matched in the `WHERE` clause (`OPTIONAL` for a left join) |
+| logical views (RML-LV): `rml:LogicalView`, `rml:viewOn` (a logical source or another view), `rml:field` (`rml:ExpressionField` with `rml:reference`, `rml:template` or `rml:constant`; `rml:IterableField` with `rml:iterator`; nested fields, `rml:referenceFormulation` to change formulation: JSON in CSV, CSV in JSON), the index keys `#` and `<field>.#`, `rml:leftJoin` and `rml:innerJoin` (`rml:parentLogicalView`, `rml:joinCondition` with `rml:child`/`rml:parent` or `rml:childMap`/`rml:parentMap`, joined fields) | the iteration of the view as binding clauses: one iterator per field, nested over the records of its parent (one solution per logical view iteration; a JSONPath expression field without value gives one iteration where it is null), each key bound to a variable that the term maps read as a CSV column; a join is a `FROM GENERATE` of the parent view's iterations, matched in the `WHERE` clause (`OPTIONAL` for a left join; the joined fields `OPTIONAL`, a null field staying unbound) |
 | RML-star: `rml:quotedTriplesMap` in a subject map or an object map (star maps), on the same logical source or with `rml:joinCondition`, nested quoted triples, `rml:AssertedTriplesMap`, `rml:NonAssertedTriplesMap` | the triple term `afn:triple(s, p, o)` (Jena, RDF 1.2) of the terms of the quoted triples map on the same iteration; with a join, a `FROM GENERATE` of the quoted triples of the other source, matched in the `WHERE` clause; a non-asserted triples map generates no triple of its own |
 | RML-IO sources: `rml:source` as a literal path, `rml:FilePath` and `rml:RelativePathSource` (`rml:path`, `rml:root`); `rml:null` | the file, relative to the base IRI; a value among the null values of the source is no value (CSV) |
 | RML-IO CSV sources (`http://w3id.org/rml/`) | `ITERATOR iter:CSVStrict(<file>, ...)` (SPARQL-Generate 2.6.1): an empty cell is the empty string, a row with another number of fields than the header is a data error |
 | RML-IO SPARQL results: `formats:SPARQL_Results_CSV` (`_JSON`, `_XML`, `_TSV`), the iterator a `SELECT` query over an RDF file | `ITERATOR iter:SPARQL(<file>, """<query>""", "var", ...)` (2.6.1): SPARQL-Generate runs the query itself, one row per solution, the references naming its variables |
-| relational databases: an R2RML logical table (`rr:logicalTable`, `rr:tableName`, `rr:sqlQuery`) or a logical source on a D2RQ database (`d2rq:Database`, `d2rq:jdbcDSN`, `d2rq:username`, `d2rq:password`) with `rr:tableName`, `rml:query`, or the RML-IO formulations `rml:SQL2008Table` and `rml:SQL2008Query` (the iterator is the table or the query) | `ITERATOR iter:SQL("<JDBC URL with the user and the password>", """<effective SQL query>""", "col", ...) AS ?c_...` (2.6.1): `SELECT * FROM <table>` (the name as written, a SQL identifier) or the query; the columns are the natural RDF literals of R2RML (`xsd:integer`, `xsd:decimal`, `xsd:double`, `xsd:boolean`, `xsd:date`, `xsd:time`, `xsd:dateTime`, `xsd:hexBinary`) for a literal without datatype or language, their lexical forms in templates; a `NULL` gives no term; an unknown column, a duplicate column name, a query that the database rejects stop the execution. A logical table without database uses the only database of the mapping |
+| relational databases: an R2RML logical table (`rr:logicalTable`, `rr:tableName`, `rr:sqlQuery`) or a logical source on a D2RQ database (`d2rq:Database`, `d2rq:jdbcDSN`, `d2rq:username`, `d2rq:password`) with `rr:tableName`, `rml:query`, or the RML-IO formulations `rml:SQL2008Table` and `rml:SQL2008Query` (the iterator is the table or the query); `rr:sqlVersion rr:SQL2008` | `ITERATOR iter:SQL("<JDBC URL with the user and the password; for MySQL and a query in SQL:2008, the ANSI_QUOTES mode, where double quotes delimit identifiers>", """<effective SQL query>""", "col", ...) AS ?c_...` (2.6.1): `SELECT * FROM <table>` (the name as written, a SQL identifier) or the query; the columns are the natural RDF literals of R2RML (`xsd:integer`, `xsd:decimal`, `xsd:double`, `xsd:boolean`, `xsd:date`, `xsd:time`, `xsd:dateTime`, `xsd:hexBinary`) for a literal without datatype or language, their lexical forms in templates; a `NULL` gives no term; an unknown column, a duplicate column name, a query that the database rejects stop the execution. A logical table without database uses the only database of the mapping |
 | RML-IO XPath with namespaces (`rml:XPathReferenceFormulation`, `rml:namespace`) | as `rml:XPath`: the prefixes are those that the document declares |
 | XPath references that leave the iterated element (`../@id`, `ancestor::`, sibling axes) | sub-queries of the iteration, `ITERATOR iter:XPath(<file>, "<iterator>", "../@id") AS ?it ?xp_...`, evaluated from the element in its document (2.6.1) |
 | invalid mappings | `#ERROR: ...` lines at the top of the output (no subject map, two subject maps, literal subject, a predicate map or graph map of term type Literal or BlankNode, a literal graph name, invalid language tag, invalid template, unbalanced JSONPath, ...) |
@@ -161,11 +161,18 @@ the execution with a message (status 1 on the command line):
   per CSV triples map, before the triples maps, reads the header only
   (`iter:CSVHeaders(<file>)`) and raises the error for a missing column
   (`templates/columnChecks.rqg`; RML-Core and RML 1.x);
+- RML 1.x: a reference of a JSON or XML source that has no value in any record (the
+  counterpart of the missing column): one sub-query per triples map reads the document from
+  its root and evaluates the iterator followed by each reference for a first match
+  (`templates/keyChecks.rqg`; not for a JSONPath iterator without wildcard, filter or deep
+  scan);
 - RML-Core: a JSONPath reference whose value is an array or an object, and the value of
   a reference that is not a valid IRI for a term map of term type IRI or URI. RML 1.x
   omits these terms, as its test cases expect.
 
-A reference that is absent from a JSON or XML record is no value, not an error.
+A reference that is absent from some JSON or XML records only is no value in those records,
+not an error; RML-Core does not raise the error of the absent reference either (its
+test cases no longer expect it, kg-construct/rml-io-registry#46).
 
 ## Optimised translation
 
@@ -204,13 +211,13 @@ the expected `dumpN.*` files; an expected error passes when an error is raised (
 
 | suite | cases | PASS | FAIL |
 |---|---|---|---|
-| RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 115 | 2 |
-| kg-construct/rml-core@82ab28d4 | 76 | 75 | 1 |
+| RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 117 | 0 |
+| kg-construct/rml-core@82ab28d4 | 76 | 75 (76 with 2.6.1) | 1 (0 with 2.6.1) |
 | kg-construct/rml-io@0cb26a2 | 73 | 64 (72 with 2.6.1) | 9 (1 with 2.6.1) |
-| RMLio/rml-test-cases@803dd3ec, SQL tracks (PostgreSQL, MySQL, SQL Server; 2.6.1) | 60 + 60 + 60 | 57, 58, 58 | 3, 2, 2 |
+| RMLio/rml-test-cases@803dd3ec, SQL tracks (PostgreSQL, MySQL, SQL Server; 2.6.1) | 60 + 60 + 60 | 57, 59, 58 | 3, 1, 2 |
 | kg-construct/rml-fnml@f573f79 | 22 | 22 | 0 |
 | kg-construct/rml-cc@d97fddf | 35 | 35 | 0 |
-| kg-construct/rml-lv@94beb94 | 41 | 40 | 1 |
+| kg-construct/rml-lv@94beb94 | 41 | 41 | 0 |
 | kg-construct/rml-star@711f72e | 18 | 18 | 0 |
 
 Every target case of rml-io passes (the 41 RMLTTC cases, UTF-16 with `--targets`); its
@@ -219,17 +226,22 @@ cell, CSV errors). With SPARQL-Generate 2.6.1 (branch `fix-2.6.1`), 1 remains: S
 file as `xsd:integer` (0003: the query runs, the literals stay as they are). No other
 case changes status. The D2RQ database of 0006a and the SQL tracks of rml-test-cases
 run on PostgreSQL, MySQL and SQL Server containers started by kgc-bench (each case loads its
-`resource.sql`). Their failures are those of the cases: 0002f (references that differ
-from the column names in case only: an error expected, the columns are found regardless of
-case, as JDBC does; 0020a needs it), 0015a on PostgreSQL and MySQL (the query names a
-table `"Country"` that the script creates unquoted), 0016e on PostgreSQL and SQL Server
-(the script stores the text of the hexadecimal digits, not the bytes). The generated queries raise the data errors with `RAISE`: an unknown CSV column
-(rml-test-cases 0002c-CSV, rml-fnml 0101), a value that is not an IRI (rml-core 0019b), a
-reference to an array (rml-core 0025b). Not raised: a key or element absent from every
-JSON or XML record (rml-test-cases 0002c-JSON, 0002c-XML), which no RML engine raises
-either. The rml-lv failure is an inner join with a parent iteration whose field has no
-value (0010b); the rml-core one, `rml:UnsafeIRI` values with spaces (0027b), which the
-engine rejects as IRIs (Jena's `IRI()`).
+`resource.sql`). Their failures are those of the cases: 0002f (an error expected for references that
+differ from the column names in case only; the original R2RML case creates delimited
+columns `"ID"`, `"Name"`, the RML port creates them unquoted, so they match as regular SQL
+identifiers on every database), 0015a on PostgreSQL (the query names a table `"Country"`
+that the script creates unquoted, `country` for PostgreSQL; on MySQL, the ANSI_QUOTES mode
+of a query in SQL:2008 makes it pass), 0016e on PostgreSQL and SQL Server (the script stores
+the text of the hexadecimal digits, not the bytes: `'\\x89...'`, `CAST('89...' AS
+VARBINARY)`). The generated queries raise the data errors with `RAISE`: an unknown CSV
+column (rml-test-cases 0002c-CSV, rml-fnml 0101), a JSON or XML reference without value in
+any record (rml-test-cases 0002c-JSON, 0002c-XML, as RMLMapper, FlexRML and BURP), a value
+that is not an IRI (rml-core 0019b), a reference to an array (rml-core 0025b). The
+`rml:UnsafeIRI` values with spaces of rml-core 0027b are written as they are
+(`fun:unsafeIRI`, 2.6.1; N-Triples escapes the space as `\u0020`), although RML-Core's
+term generation rules make an invalid IRI a data error (kg-construct/rml-core#72, #265).
+A JSONPath field without value of a logical view keeps the iteration with a null value
+(rml-lv 0010b).
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in

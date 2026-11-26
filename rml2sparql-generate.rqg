@@ -31,6 +31,10 @@ TEMPLATE {
   # does not have (templates/columnChecks.rqg)
   TEMPLATE { TEMPLATE <templates/columnChecks.rqg>(?tm, ?rf) . }
   ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group .
+  # of the JSON and XML sources of RML 1.x: a reference without value in any
+  # record (templates/keyChecks.rqg)
+  TEMPLATE { TEMPLATE <templates/keyChecks.rqg>(?tm, ?rf) . }
+  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group .
 
   # each triples map alone, or (rewriting R3, README.md) the triples maps of a shared CSV
   # source in one iteration
@@ -116,7 +120,8 @@ TEMPLATE {
 # (d2rq:jdbcDSN, d2rq:username, d2rq:password), and an R2RML logical table
 # (rr:logicalTable, read as rml:logicalSource) on the only database of the
 # mapping. Its source becomes the JDBC URL of the database, with the user
-# and the password, and its iterator the effective SQL query of R2RML:
+# and the password (and, for MySQL and a query in SQL:2008, the ANSI_QUOTES
+# mode), and its iterator the effective SQL query of R2RML:
 # "SELECT * FROM <table>" for rr:tableName or rml:SQL2008Table (the table
 # name as written, a SQL identifier: delimited with quotes, or not), the query
 # of rml:query, rr:sqlQuery or rml:SQL2008Query. The effective query tells two
@@ -152,7 +157,16 @@ FROM GENERATE {
          IF(STRSTARTS(?dsnText, "jdbc:h2:"),
             CONCAT(?dsnText, ";USER=", STR(?user), ";PASSWORD=", STR(COALESCE(?password, ""))),
             CONCAT(?dsnText, IF(CONTAINS(?dsnText, "?"), "&", "?"), "user=", ENCODE_FOR_URI(STR(?user)),
-                   "&password=", ENCODE_FOR_URI(STR(COALESCE(?password, ""))))))) AS ?url)
+                   "&password=", ENCODE_FOR_URI(STR(COALESCE(?password, ""))))))) AS ?url0)
+    # a query in SQL:2008 (rr:sqlVersion rr:SQL2008, rml:SQL2008Table,
+    # rml:SQL2008Query) delimits identifiers with double quotes: MySQL reads
+    # them so in its ANSI_QUOTES mode, added to the session's SQL mode
+    # (RMLTC0015a-MySQL: SELECT "Code", "Name" FROM "Country")
+    BIND(STRSTARTS(?dsnText, "jdbc:mysql:")
+         && (EXISTS { ?s rr:sqlVersion rr:SQL2008 } || ?sqlRfName IN ("SQL2008Table", "SQL2008Query"))
+         && !REGEX(?dsnText, "[?&]sessionVariables=", "i") AS ?ansiQuotes)
+    BIND(IF(?ansiQuotes, CONCAT(?url0, IF(CONTAINS(?url0, "?"), "&", "?"), "sessionVariables=",
+            ENCODE_FOR_URI("sql_mode=CONCAT(@@sql_mode,',ANSI_QUOTES')")), ?url0) AS ?url)
     BIND(REPLACE(
            IF(?sqlRfName = "SQL2008Table", CONCAT("SELECT * FROM ", STR(?sqlIt)),
            IF(?sqlRfName = "SQL2008Query", STR(?sqlIt),

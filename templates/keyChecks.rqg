@@ -1,0 +1,78 @@
+# A data error of a JSON or XML source of RML 1.x: a reference that has no
+# value in any record of the source (rml-test-cases RMLTC0002c-JSON,
+# RMLTC0002c-XML: the counterpart of a column that the header of a CSV file
+# does not have, templates/columnChecks.rqg). A reference absent from some
+# records only is no error: those records give no term. For a triples map ?tm
+# over a JSON or XML file, a sub-query reads the document once, from its root,
+# and evaluates, for the first record only, the iterator and each reference
+# appended to it (JSONPath "$.students[*]" and "IDs": "$.students[*].IDs";
+# XPath "/students/student" and "IDs": "students/student/IDs"):
+#
+#   GENERATE { } ITERATOR iter:JSONPath(<file>, "$", "$.students[*]", "$.students[*].IDs")
+#     AS ?doc_ ?recs_ ?k<md5(r)>
+#     BIND(IF(COALESCE(STR(?recs_) = "[]", false), true,
+#             (COALESCE(STR(?k<md5(r)>) != "[]", true) || RAISE(...)) && ...) AS ?ok_)
+#   WHERE { } .
+#
+# (iter:JSONPath gives "[]" for a path without match, the value of a single
+# scalar match, and leaves an object unbound; iter:XPath leaves a path without
+# match unbound.) A source
+# without record raises nothing. A JSON key whose value is null is a value
+# here. Not checked: a JSONPath iterator without wildcard, filter or deep
+# scan (a definite path), references that start with $ or /, RML-Core (whose
+# test cases no longer expect this error, kg-construct/rml-io-registry#46),
+# logical views. The sub-queries come before the triples maps.
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+TEMPLATE <templates/keyChecks.rqg>(?tm, ?rf) {
+  "\n  # the references of " ?srcText
+  "\n  GENERATE \{ } ITERATOR " ?call
+  TEMPLATE { ", " ?pathText }
+  ITERATOR <iterators/references.rqg>("tm", ?tm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+  WHERE { FILTER(!STRSTARTS(?r, "$") && !STRSTARTS(?r, "/"))
+          BIND(IF(?rf = "JSONPath", CONCAT(?it, IF(REGEX(?r, "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"), CONCAT(".", ?r), CONCAT("['", REPLACE(?r, "'", "\\\\'"), "']"))),
+                  CONCAT(?relIt, "/", ?r)) AS ?path)
+          BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?path, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?pathText) } .
+  ") AS ?doc_ ?recs_"
+  TEMPLATE { " ?k" MD5(?r) }
+  ITERATOR <iterators/references.rqg>("tm", ?tm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+  WHERE { FILTER(!STRSTARTS(?r, "$") && !STRSTARTS(?r, "/")) } .
+  "\n    BIND(IF(" ?none0 ", true, true"
+  TEMPLATE { "\n      && (" ?some " || RAISE(\"RML data error: the reference has no value in any record of the source\", " ?refText ", " ?srcText "))" }
+  ITERATOR <iterators/references.rqg>("tm", ?tm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>) AS ?r
+  WHERE { FILTER(!STRSTARTS(?r, "$") && !STRSTARTS(?r, "/"))
+          BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(?r, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?refText)
+          BIND(IF(?rf = "JSONPath", CONCAT("COALESCE(STR(?k", MD5(?r), ") != \"[]\", true)"), CONCAT("BOUND(?k", MD5(?r), ")")) AS ?some) } .
+  ") AS ?ok_) WHERE \{ } .\n"
+}
+WHERE {
+  FILTER(?rf IN ("JSONPath", "XPath"))
+  FILTER NOT EXISTS { ?tm rmlc:logicalSource ?anyc }
+  ?tm rml:logicalSource ?ls .
+  ?ls rml:iterator ?it0 .
+  BIND(STR(?it0) AS ?it)
+  # JSONPath: an indefinite iterator, which gives a list, empty without match
+  FILTER(?rf = "XPath" || REGEX(?it, "\\*|\\.\\.|\\?\\("))
+  FILTER(?rf = "JSONPath" || STRSTARTS(?it, "/"))
+  # XPath: the path from the document node
+  BIND(IF(STRSTARTS(?it, "//"), CONCAT(".", ?it), SUBSTR(?it, 2)) AS ?relIt)
+  # a reference to check
+  FILTER EXISTS {
+    { ?tm rr:subjectMap ?t }
+    UNION { ?tm rr:subjectMap/rr:graphMap ?t }
+    UNION { ?tm rr:predicateObjectMap/(rr:predicateMap|rr:objectMap|rr:graphMap) ?t }
+    ?t (rr:template|rml:reference) ?x
+  }
+  FILTER NOT EXISTS { ?tm rr:subjectMap/rr:graph ?bg FILTER(isBlank(?bg)) }
+  ?ls rml:source ?src . FILTER(isLiteral(?src))
+  BIND(STR(?src) AS ?path0)
+  BIND(IF(REGEX(?path0, "^[A-Za-z][A-Za-z0-9+.-]*:"), ?path0,
+       IF(STRSTARTS(?path0, "/"), CONCAT("file://", ?path0), ?path0)) AS ?iri)
+  BIND(CONCAT("<", REPLACE(?iri, " ", "%20"), ">") AS ?srcText)
+  BIND(CONCAT("\"", REPLACE(REPLACE(REPLACE(IF(?rf = "JSONPath", ?it, ?relIt), "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\\\{", "\\\\\{"), "\"") AS ?itText)
+  BIND(IF(?rf = "JSONPath", CONCAT("iter:JSONPath(", ?srcText, ", \"$\", ", ?itText),
+                            CONCAT("iter:XPath(", ?srcText, ", \"/\", ", ?itText)) AS ?call)
+  BIND(IF(?rf = "JSONPath", "COALESCE(STR(?recs_) = \"[]\", false)", "!BOUND(?recs_)") AS ?none0)
+}

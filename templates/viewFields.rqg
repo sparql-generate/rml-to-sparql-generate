@@ -7,7 +7,10 @@
 # ?<P><md5(k.#)>:
 #
 #   expression field, reference   an iterator over the record (one solution
-#                                 per value, its position as index; CSV and
+#                                 per value, its position as index; JSONPath:
+#                                 one solution with a null value and index
+#                                 when there is no value, as RML-LV keeps the
+#                                 iteration with a null value; CSV and
 #                                 VIEW: the value, index 0, or the index of
 #                                 the key referenced)
 #   expression field, template    the iterators of its references, then the text
@@ -27,7 +30,11 @@ PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 TEMPLATE <templates/viewFields.rqg>(?parent, ?rec, ?rf, ?path, ?P, ?VP, ?depth) {
   TEMPLATE {
     # expression field, reference
-    TEMPLATE { "ITERATOR iter:JSONPath(" ?rec ", " ?pathText ", \"$\") AS ?" ?P "r" ?hv " ?" ?P ?hv " ?" ?P ?hi "\n    " }
+    # (a record without value, or no record: one iteration, the value and
+    # the index null, RMLLVTC0010b)
+    TEMPLATE { "BIND(COALESCE(STR(fun:JSONPath(" ?rec ", " ?pathText ")) = \"[]\", true) AS ?" ?P "e" ?hv ") "
+               "ITERATOR iter:JSONPath(IF(?" ?P "e" ?hv ", \"[null]\", " ?rec "), IF(?" ?P "e" ?hv ", \"$[*]\", " ?pathText "), \"$\") AS ?" ?P "r" ?hv " ?" ?P ?hv " ?" ?P "i" ?hv " "
+               "BIND(IF(?" ?P "e" ?hv ", ?none, ?" ?P "i" ?hv ") AS ?" ?P ?hi ")\n    " }
     WHERE { FILTER(BOUND(?r) && ?rf = "JSONPath") } .
     TEMPLATE { "ITERATOR iter:XPath(" ?rec ", " ?pathText ") AS ?" ?P "r" ?hv " ?" ?P ?hi " BIND(?" ?P "r" ?hv " AS ?" ?P ?hv ")\n    " }
     WHERE { FILTER(BOUND(?r) && ?rf = "XPath") } .

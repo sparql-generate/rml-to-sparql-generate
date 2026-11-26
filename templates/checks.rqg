@@ -35,7 +35,7 @@ TEMPLATE <templates/checks.rqg>(?dialect) {
 
   TEMPLATE { "#ERROR: a constant-valued term map has an incompatible term type\n" }
   WHERE { ?t (rr:constant|rmlc:constant) ?c ; (rr:termType|rmlc:termType) ?tt .
-          FILTER((isIRI(?c) && !(?tt IN (rr:IRI, rmlc:IRI, rmlc:URI, rmlc:UnsafeIRI)))
+          FILTER((isIRI(?c) && !(?tt IN (rr:IRI, rmlc:IRI, rmlc:URI, rmlc:UnsafeIRI, rmlc:UnsafeURI)))
               || (isLiteral(?c) && !(?tt IN (rr:Literal, rmlc:Literal))))
   } LIMIT 1 .
 

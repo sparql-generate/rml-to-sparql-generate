@@ -93,15 +93,19 @@ TEMPLATE <templates/termMap.rqg>(?t, ?const, ?ref, ?role, ?kind, ?rf, ?dialect, 
     BIND(CONCAT("?l_", ?role) AS ?l)
     BIND(CONCAT("STR(", ?l, ")") AS ?sl)
     BIND(CONCAT("\"", REPLACE(REPLACE(?base, "\\\\", "\\\\\\\\"), "\"", "\\\\\""), "\"") AS ?baseText)
+    # rml:UnsafeIRI, rml:UnsafeURI (RML-Core): the string as it is, unchecked
+    # (fun:unsafeIRI, SPARQL-Generate 2.6.1): an IRI with a space (RMLTC0027b)
+    BIND(?tt = "UnsafeIRI" || ?tt = "UnsafeURI" AS ?unsafe)
+    BIND(IF(?unsafe, "fun:unsafeIRI", "IRI") AS ?iriFn)
     BIND(
       IF(?kind = "key" || ?kind = "language", ?sl,
       # Rewriting R2: a template whose constant text starts with a scheme gives
       # an absolute IRI whatever the values: no test at run time
-      IF((?tt = "IRI" || ?tt = "URI" || ?tt = "UnsafeIRI") && BOUND(?tpl)
+      IF((?tt = "IRI" || ?tt = "URI" || ?unsafe) && BOUND(?tpl)
          && REGEX(?tpl, "^[A-Za-z][A-Za-z0-9+.-]*:"),
-         CONCAT("IRI(", ?sl, ")"),
-      IF(?tt = "IRI" || ?tt = "URI" || ?tt = "UnsafeIRI",
-         CONCAT("IRI(IF(REGEX(", ?sl, ", \"^[A-Za-z][A-Za-z0-9+.-]*:\"), ", ?sl, ", CONCAT(", ?baseText, ", ", ?sl, ")))"),
+         CONCAT(?iriFn, "(", ?sl, ")"),
+      IF(?tt = "IRI" || ?tt = "URI" || ?unsafe,
+         CONCAT(?iriFn, "(IF(REGEX(", ?sl, ", \"^[A-Za-z][A-Za-z0-9+.-]*:\"), ", ?sl, ", CONCAT(", ?baseText, ", ", ?sl, ")))"),
       IF(?tt = "BlankNode", CONCAT("fun:bnode(", ?sl, ")"),
       IF(BOUND(?lang), CONCAT("STRLANG(", ?sl, ", \"", STR(?lang), "\")"),
       IF(BOUND(?lm), CONCAT("STRLANG(", ?sl, ", ?", ?role, "lang)"),
