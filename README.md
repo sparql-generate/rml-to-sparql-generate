@@ -203,7 +203,7 @@ at commit `5fa291a`. Graph maps are translated into
 
 ## Conformance
 
-Measured by kgc-bench with SPARQL-Generate 2.6.0, by RDF dataset isomorphism with the
+Measured by kgc-bench with SPARQL-Generate 2.6.1, by RDF dataset isomorphism with the
 expected output of each case, the default graph and every named graph; the logical
 targets are written to their files (`--graphs-to-files`, `--targets`) and compared with
 the expected `dumpN.*` files; an expected error passes when an error is raised (with
@@ -212,19 +212,17 @@ the expected `dumpN.*` files; an expected error passes when an error is raised (
 | suite | cases | PASS | FAIL |
 |---|---|---|---|
 | RMLio/rml-test-cases@803dd3ec (CSV, JSON, XML) | 117 | 117 | 0 |
-| kg-construct/rml-core@82ab28d4 | 76 | 75 (76 with 2.6.1) | 1 (0 with 2.6.1) |
-| kg-construct/rml-io@0cb26a2 | 73 | 64 (72 with 2.6.1) | 9 (1 with 2.6.1) |
-| RMLio/rml-test-cases@803dd3ec, SQL tracks (PostgreSQL, MySQL, SQL Server; 2.6.1) | 60 + 60 + 60 | 57, 59, 58 | 3, 1, 2 |
+| kg-construct/rml-core@82ab28d4 | 76 | 76 | 0 |
+| kg-construct/rml-io@0cb26a2 | 73 | 72 | 1 |
+| RMLio/rml-test-cases@803dd3ec, SQL tracks (PostgreSQL, MySQL, SQL Server) | 60 + 60 + 60 | 57, 59, 58 | 3, 1, 2 |
 | kg-construct/rml-fnml@f573f79 | 22 | 22 | 0 |
 | kg-construct/rml-cc@d97fddf | 35 | 35 | 0 |
 | kg-construct/rml-lv@94beb94 | 41 | 41 | 0 |
-| kg-construct/rml-star@711f72e | 18 | 18 | 0 |
+| kg-construct/rml-star@9517932 | 18 | 18 | 0 |
 
 Every target case of rml-io passes (the 41 RMLTTC cases, UTF-16 with `--targets`); its
-9 failures with 2.6.0 are sources (SQL, SPARQL results, XPath namespaces, the empty CSV
-cell, CSV errors). With SPARQL-Generate 2.6.1 (branch `fix-2.6.1`), 1 remains: SPARQL results whose expected output types the plain literals of the
-file as `xsd:integer` (0003: the query runs, the literals stay as they are). No other
-case changes status. The D2RQ database of 0006a and the SQL tracks of rml-test-cases
+failure is SPARQL results whose expected output types the plain literals of the file as
+`xsd:integer` (0003: the query runs, the literals stay as they are). The D2RQ database of 0006a and the SQL tracks of rml-test-cases
 run on PostgreSQL, MySQL and SQL Server containers started by kgc-bench (each case loads its
 `resource.sql`). Their failures are those of the cases: 0002f (an error expected for references that
 differ from the column names in case only; the original R2RML case creates delimited
