@@ -141,16 +141,21 @@ FROM GENERATE {
   ?s ?p ?o .
   # rewriting R8 (README.md): a referencing object map ?s whose join is
   # computed in the iteration of the child, on the same row, without key
-  # graphs. The child and the parent read the same CSV source; every join
-  # condition joins a column c with itself; the child subject map is an IRI
-  # template or reference whose references are all c, at least once; the
-  # predicate and the graph maps are constants. Then the child subject (and
-  # the predicate, the graphs) of a row depends on its value of c only: for a
-  # pair of rows (r, r') with the same non-null value of c, the joined triple
-  # (s(r), p, o(r')) is (s(r'), p, o(r')), the triple of the pair (r', r');
-  # and a row whose c is null has no subject. The join is then the set of
-  # (s(r), p, o(r)) over the rows: no uniqueness of c is needed, the output
-  # being a set. Each condition below keeps this argument exact.
+  # graphs. The child and the parent read the same CSV source (the same rows);
+  # every join condition joins a column c with itself; the predicate and the
+  # graph maps are constants; and the child subject map or the parent subject
+  # map is an IRI template or reference whose references are all c, at least
+  # once: its term depends on the value of c only. The join is the union over
+  # the pairs of rows (r, r') with the same value of c of (s(r), p, o(r')).
+  # - Child subject on c: (s(r), p, o(r')) is (s(r'), p, o(r')), the triple
+  #   of the pair (r', r'); a row without value of c has no subject.
+  # - Parent subject on c (symmetric): (s(r), p, o(r')) is (s(r), p, o(r)),
+  #   the triple of the pair (r, r), since r is a parent row with its own
+  #   value of c; a row without value of c has no parent subject, and joins
+  #   no row (an empty key matches no key).
+  # The join is then the set of (s(r), p, o(r)) over the rows: no uniqueness
+  # of c is needed, the output being a set. Each condition below keeps this
+  # argument exact.
   OPTIONAL {
     FILTER(?p IN (rr:parentTriplesMap, rmlc:parentTriplesMap))
     FILTER NOT EXISTS { ?s (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptmX FILTER(?ptmX != ?o) }
@@ -195,9 +200,8 @@ FROM GENERATE {
                || EXISTS { ?jSa ?jq5 ?jv5 FILTER NOT EXISTS { ?jSb ?jq5 ?jv5 } }
                || EXISTS { ?jSb ?jq6 ?jv6 FILTER NOT EXISTS { ?jSa ?jq6 ?jv6 } })
       }))
-    # the child subject map: one, an IRI, a template whose references are
-    # all the join column (as many references as occurrences of {c}) or the
-    # reference c; no function, star map, gather map, target
+    # the child subject map: one, an IRI, a template or a reference; no
+    # function, star map, gather map, target
     ?jTm (rr:subjectMap|rmlc:subjectMap) ?jSm .
     FILTER NOT EXISTS { ?jTm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?jSmX FILTER(?jSmX != ?jSm) }
     FILTER NOT EXISTS { ?jSm (rr:termType|rmlc:termType) ?jTt
@@ -206,13 +210,6 @@ FROM GENERATE {
                               |rr:constant|rmlc:constant) ?jX }
     FILTER NOT EXISTS { ?jSm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?jE1 ,  ?jE2 FILTER(?jE1 != ?jE2) }
     { ?jSm (rr:template|rmlc:template) ?jTpl } UNION { ?jSm (rml:reference|rmlc:reference|rr:column) ?jRefS }
-    BIND(STR(?jTpl) AS ?jT)
-    BIND(CONCAT("\{", STR(?jCol), "}") AS ?jBraced)
-    FILTER(IF(BOUND(?jTpl),
-              !CONTAINS(?jT, "\\") && CONTAINS(?jT, ?jBraced)
-              && STRLEN(?jT) - STRLEN(REPLACE(?jT, ?jBraced, "", "q"))
-                 = (STRLEN(?jT) - STRLEN(REPLACE(?jT, "\{", "", "q"))) * STRLEN(?jBraced),
-              STR(?jRefS) = STR(?jCol)))
     # the parent subject map: one, with an expression (not a blank node per
     # iteration), no star map, gather map, target
     ?o (rr:subjectMap|rmlc:subjectMap) ?jPsm .
@@ -220,6 +217,33 @@ FROM GENERATE {
     FILTER EXISTS { ?jPsm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant|rmlc:functionExecution) ?jPe }
     FILTER NOT EXISTS { ?jPsm (rmlc:quotedTriplesMap|rmlc:gather|rmlc:logicalTarget) ?jPx }
     FILTER NOT EXISTS { ?s (rmlc:logicalTarget|rmlc:quotedTriplesMap|rmlc:gather) ?jOx }
+    # the child subject depends on c only: its template has no \, and its
+    # references are all c (as many occurrences of {c} as of {), at least one;
+    # or it is the reference c
+    BIND(CONCAT("\{", STR(?jCol), "}") AS ?jBraced)
+    BIND(STR(?jTpl) AS ?jT)
+    BIND(IF(BOUND(?jTpl),
+            !CONTAINS(?jT, "\\") && CONTAINS(?jT, ?jBraced)
+            && STRLEN(?jT) - STRLEN(REPLACE(?jT, ?jBraced, "", "q"))
+               = (STRLEN(?jT) - STRLEN(REPLACE(?jT, "\{", "", "q"))) * STRLEN(?jBraced),
+            STR(?jRefS) = STR(?jCol)) AS ?jChildOnKey)
+    # or (symmetric case) the parent subject depends on c only: an IRI, one
+    # template or reference, without function nor condition, under the same
+    # condition on its references
+    OPTIONAL {
+      FILTER NOT EXISTS { ?jPsm (rr:termType|rmlc:termType) ?jPtt
+                          FILTER(?jPtt NOT IN (rr:IRI, rmlc:IRI, rmlc:URI, rmlc:UnsafeIRI, rmlc:UnsafeURI)) }
+      FILTER NOT EXISTS { ?jPsm (rmlc:functionExecution|rmlc:condition|rr:constant|rmlc:constant) ?jPx2 }
+      FILTER NOT EXISTS { ?jPsm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?jPE1 , ?jPE2 FILTER(?jPE1 != ?jPE2) }
+      { ?jPsm (rr:template|rmlc:template) ?jPTpl } UNION { ?jPsm (rml:reference|rmlc:reference|rr:column) ?jPRef }
+    }
+    BIND(STR(?jPTpl) AS ?jPT)
+    BIND(IF(BOUND(?jPTpl),
+            !CONTAINS(?jPT, "\\") && CONTAINS(?jPT, ?jBraced)
+            && STRLEN(?jPT) - STRLEN(REPLACE(?jPT, ?jBraced, "", "q"))
+               = (STRLEN(?jPT) - STRLEN(REPLACE(?jPT, "\{", "", "q"))) * STRLEN(?jBraced),
+            BOUND(?jPRef) && STR(?jPRef) = STR(?jCol)) AS ?jParentOnKey)
+    FILTER(?jChildOnKey || ?jParentOnKey)
     # the predicates and the graphs: constants
     FILTER NOT EXISTS { ?jPom (rr:predicateMap|rmlc:predicateMap) ?jPm
                         FILTER NOT EXISTS { ?jPm (rr:constant|rmlc:constant) ?jPc } }
