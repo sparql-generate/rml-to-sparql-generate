@@ -184,8 +184,10 @@ same distinct triples):
 |---|---|---|
 | R1 | the sub-queries of an iteration (one for the classes, one per predicate map and object map) are flattened into the WHERE clause of the triples map: each term is bound once per row, and the triples map has one template | CSV sources: a reference has one value per row, so each sub-query has at most one solution |
 | R2 | `IRI(?l)` instead of a run-time test for a relative IRI | templates whose constant text starts with a scheme |
-| R3 | the triples maps of one CSV file share one iteration of it: one GENERATE with all their triples, `iter:CSV` over the union of their columns | the same file and reference formulation, each triples map with at least one reference or template, and no blank node map without expression |
+| R3 | the triples maps of one CSV file share one iteration of it: one GENERATE with all their triples, `iter:CSV` over the union of their columns | the same file and reference formulation, each triples map with at least one reference or template, no blank node map without expression, and no null values of its own (`rml:null`) |
 | R4 | CSV files are read in batches of 10 000 rows (a streamed output is written batch by batch) | always: the generated queries have no solution modifier |
+| R8 | a join of a CSV source with itself is made on the row of the child, in its iteration (the parent's subject computed from the same row, as for a referencing object map without join), instead of two key graphs (`FROM GENERATE`) | the child and the parent read the same CSV file (the same logical source, or logical sources of the same description: same source, formulation and properties; not a view, nor a database); every join condition joins one column c with itself; the child's subject map is an IRI template (without `\`) whose references are all c, at least once, or the reference c; its predicates and graph maps are constants; no function, star map, gather map nor logical target on the child's subject map, the parent's subject map or the referencing object map, and the parent's subject has an expression. The subject (and predicate, graphs) of a child row then depends on its value of c only: a pair of rows with the same value gives the triple of the parent row paired with itself, and a row without value has no subject. No uniqueness of c is needed (GTFS-Madrid-Bench: shapes and their points, services and their calendar rules) |
+| R9 | the child of a join is read as a stream, at the level of the join: each row binds its key and looks it up in the graph of the parent keys (`FROM GENERATE`), instead of a second graph of the child keys | a CSV child (not a logical view), one join condition given as references (`rr:child`, `rr:parent`), a constant predicate, no graph map with an expression, and a parent subject that is an IRI template whose references are all the parent's reference of the condition, or that reference. Exact in any case (the same parent graph; a child row generates the triples of its key; an empty key, bound to an IRI, matches no key); the condition on the parent subject bounds the cost: a child row finds at most one parent subject, and the join costs the rows of the child |
 
 Gather maps over a CSV source need SPARQL-Generate 2.5.0 or later: the order of
 the rows is the position that `iter:CSV` gives after the named columns (on an
@@ -243,7 +245,9 @@ A JSONPath field without value of a logical view keeps the iteration with a null
 
 The cases with graph maps (6 per track of rml-test-cases, 7 of rml-core) all pass, as do
 the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iteration, in
-joins, and with JSONPath values in number other than one.
+joins, and with JSONPath values in number other than one, and for the joins of rewritings R8
+and R9 (a CSV file joined with itself, logical sources of the same description or not, a
+child read as a stream, empty keys).
 
 ## History
 

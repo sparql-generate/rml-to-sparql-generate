@@ -3,8 +3,8 @@
 # (rewriting R3 of README.md: one iteration for them all,
 # templates/csvGroup.rqg), or "" when the triples map is translated alone (templates/triplesMap.rqg).
 #
-# A triples map is grouped when its source is a CSV file (not a database), read by at least one other
-# such triples map, and when it has a reference (the shared iteration binds
+# A triples map is grouped when its source is a CSV file (not a database, no
+# rml:null values), read by at least one other such triples map, and when it has a reference (the shared iteration binds
 # the union of the columns) and no blank node map without expression (whose
 # blank node is one per iteration and per triples map).
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
@@ -38,6 +38,9 @@ WHERE {
         FILTER(REPLACE(STR(?rf1), "^.*[#/]", "") = "CSV")
         # a relational database: one query per triples map (iter:SQL)
         FILTER NOT EXISTS { ?ls <urn:x-rml2sg:sql> true }
+        # null values (RML-IO, rml:null) of its own: not shared with another
+        # reading of the file
+        FILTER NOT EXISTS { ?ls rmlc:source/rmlc:null ?anyNull }
         OPTIONAL { ?ls (rml:source|rmlc:source) ?s0 FILTER(isLiteral(?s0)) }
         OPTIONAL { ?ls (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p0 }
         BIND(STR(COALESCE(?p0, ?s0)) AS ?src)
@@ -58,6 +61,7 @@ WHERE {
         ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?rf2 .
         FILTER(REPLACE(STR(?rf2), "^.*[#/]", "") = "CSV")
         FILTER NOT EXISTS { ?ls2 <urn:x-rml2sg:sql> true }
+        FILTER NOT EXISTS { ?ls2 rmlc:source/rmlc:null ?anyNull2 }
         OPTIONAL { ?ls2 (rml:source|rmlc:source) ?s2 FILTER(isLiteral(?s2)) }
         OPTIONAL { ?ls2 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p2 }
         BIND(STR(COALESCE(?p2, ?s2)) AS ?src)

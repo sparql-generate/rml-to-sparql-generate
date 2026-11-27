@@ -9,7 +9,9 @@
 # triples map, under the names ?p_<key>, ?o_<key> of iterators/poms.rqg, and
 # every triple is in the one template of the triples map. Referencing object maps
 # with a join, or over another logical source, are translated apart, at the
-# top level (templates/join.rqg), so that the parent is read once.
+# top level (templates/join.rqg), so that the parent is read once; except a
+# join of the source with itself made on the same row (rewriting R8,
+# iterators/poms.rqg), whose object is the parent's subject on the row.
 #
 # Graph maps (templates/graphs.rqg): each triple pattern is written in the
 # target graphs of its subject map and predicate-object map (the classes: of

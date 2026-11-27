@@ -28,8 +28,9 @@ WHERE {
                OPTIONAL { ?ptm (rr:subjectMap|rmlc:subjectMap) ?psm } }
     # a referencing object map is translated here only without join, on the
     # same logical source: the object is then the parent's subject, on the
-    # same iteration
-    FILTER(!BOUND(?ptm) || (
+    # same iteration; or with a join made on the same row (rewriting R8,
+    # rml2sparql-generate.rqg, urn:x-rml2sg:sameRow)
+    FILTER(!BOUND(?ptm) || EXISTS { ?omx <urn:x-rml2sg:sameRow> true } || (
       NOT EXISTS { ?omx (rr:joinCondition|rmlc:joinCondition) ?anon3 } && EXISTS {
         ?tm (rml:logicalSource|rmlc:logicalSource) ?ls1 .
         ?ptm (rml:logicalSource|rmlc:logicalSource) ?ls2 .

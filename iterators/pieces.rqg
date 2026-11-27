@@ -71,6 +71,11 @@ WHERE {
           ?ptm (rr:subjectMap|rmlc:subjectMap) ?t
         }
         UNION {
+          # a join made on the same row (rewriting R8): the parent's subject
+          ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?srom .
+          ?srom <urn:x-rml2sg:sameRow> true ; (rr:parentTriplesMap|rmlc:parentTriplesMap)/(rr:subjectMap|rmlc:subjectMap) ?t
+        }
+        UNION {
           # a blank node subject without expression: its joins are made in its
           # iteration (templates/joinInIteration.rqg), which reads the child keys
           ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:joinCondition|rmlc:joinCondition)/rmlc:childMap ?t .

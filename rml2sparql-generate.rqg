@@ -62,6 +62,9 @@ TEMPLATE {
       ?ls1 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfb .
       FILTER(REPLACE(STR(?rfb), "^.*[#/]", "") = "CSV")
     }
+    # not joined on the same row, in the iteration of the child (rewriting
+    # R8: iterators/poms.rqg)
+    FILTER NOT EXISTS { ?om <urn:x-rml2sg:sameRow> true }
     # with a join condition, or over another logical source
     FILTER(EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?anon1 } || !(?ls1 = ?ls2 || EXISTS {
           # effectively equal logical sources: same source, reference
@@ -133,8 +136,99 @@ FROM GENERATE {
   ?sqlRfLs rml:referenceFormulation rmlc:CSV .
   ?sqlItLs rml:iterator ?sqlQuery .
   ?sqlSrcLs rml:source ?sqlUrl .
+  ?sameRowOm <urn:x-rml2sg:sameRow> true .
 } WHERE {
   ?s ?p ?o .
+  # rewriting R8 (README.md): a referencing object map ?s whose join is
+  # computed in the iteration of the child, on the same row, without key
+  # graphs. The child and the parent read the same CSV source; every join
+  # condition joins a column c with itself; the child subject map is an IRI
+  # template or reference whose references are all c, at least once; the
+  # predicate and the graph maps are constants. Then the child subject (and
+  # the predicate, the graphs) of a row depends on its value of c only: for a
+  # pair of rows (r, r') with the same non-null value of c, the joined triple
+  # (s(r), p, o(r')) is (s(r'), p, o(r')), the triple of the pair (r', r');
+  # and a row whose c is null has no subject. The join is then the set of
+  # (s(r), p, o(r)) over the rows: no uniqueness of c is needed, the output
+  # being a set. Each condition below keeps this argument exact.
+  OPTIONAL {
+    FILTER(?p IN (rr:parentTriplesMap, rmlc:parentTriplesMap))
+    FILTER NOT EXISTS { ?s (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptmX FILTER(?ptmX != ?o) }
+    # one predicate-object map of one triples map
+    ?jPom (rr:objectMap|rmlc:objectMap) ?s .
+    ?jTm (rr:predicateObjectMap|rmlc:predicateObjectMap) ?jPom .
+    FILTER NOT EXISTS { ?jPomX (rr:objectMap|rmlc:objectMap) ?s FILTER(?jPomX != ?jPom) }
+    FILTER NOT EXISTS { ?jTmX (rr:predicateObjectMap|rmlc:predicateObjectMap) ?jPom FILTER(?jTmX != ?jTm) }
+    # the join column: one, joined with itself by every condition, given as
+    # a string (rr:child, rr:parent), without \ { } (template syntax)
+    ?s (rr:joinCondition|rmlc:joinCondition)/(rr:child|rmlc:child) ?jCol .
+    FILTER(!REGEX(STR(?jCol), "[\\\\\{}]"))
+    FILTER NOT EXISTS {
+      ?s (rr:joinCondition|rmlc:joinCondition) ?jc .
+      FILTER(EXISTS { ?jc (rmlc:childMap|rmlc:parentMap) ?jMap }
+             || EXISTS { ?jc (rr:child|rmlc:child|rr:parent|rmlc:parent) ?jRef FILTER(STR(?jRef) != STR(?jCol)) }
+             || NOT EXISTS { ?jc (rr:child|rmlc:child) ?jc1 } || NOT EXISTS { ?jc (rr:parent|rmlc:parent) ?jp1 })
+    }
+    # the same CSV source: one logical source each, the same node or the
+    # same description (every property and value, the source a literal, an
+    # IRI or a blank node described by the same literals and IRIs); not a
+    # logical view, nor a database (iter:SQL)
+    ?jTm (rml:logicalSource|rmlc:logicalSource) ?jLsC .
+    ?o (rml:logicalSource|rmlc:logicalSource) ?jLsP .
+    FILTER NOT EXISTS { ?jTm (rml:logicalSource|rmlc:logicalSource) ?jLsX FILTER(?jLsX != ?jLsC) }
+    FILTER NOT EXISTS { ?o (rml:logicalSource|rmlc:logicalSource) ?jLsX2 FILTER(?jLsX2 != ?jLsP) }
+    ?jLsC (rml:referenceFormulation|rmlc:referenceFormulation) ?jRf .
+    FILTER(isIRI(?jRf) && REPLACE(STR(?jRf), "^.*[#/]", "") = "CSV")
+    FILTER NOT EXISTS { ?jLsC (rml:referenceFormulation|rmlc:referenceFormulation) ?jRfX FILTER(?jRfX != ?jRf) }
+    FILTER NOT EXISTS { ?jLsC rmlc:viewOn ?jView }
+    FILTER NOT EXISTS { ?jLsC (rml:source|rmlc:source)/d2rq:jdbcDSN ?jDsn }
+    FILTER EXISTS { ?jLsC (rml:source|rmlc:source) ?jSrc }
+    FILTER(?jLsC = ?jLsP || (
+      NOT EXISTS { ?jLsC ?jq ?jv FILTER(!isBlank(?jv)) FILTER NOT EXISTS { ?jLsP ?jq ?jv } }
+      && NOT EXISTS { ?jLsP ?jq2 ?jv2 FILTER(!isBlank(?jv2)) FILTER NOT EXISTS { ?jLsC ?jq2 ?jv2 } }
+      && NOT EXISTS { { ?jLsC ?jq3 ?jv3 } UNION { ?jLsP ?jq3 ?jv3 } FILTER(isBlank(?jv3) && ?jq3 NOT IN (rml:source, rmlc:source)) }
+      && NOT EXISTS {
+        ?jLsC (rml:source|rmlc:source) ?jSa . ?jLsP (rml:source|rmlc:source) ?jSb .
+        FILTER(?jSa != ?jSb)
+        FILTER(!isBlank(?jSa) || !isBlank(?jSb)
+               || EXISTS { { ?jSa ?jq4 ?jv4 } UNION { ?jSb ?jq4 ?jv4 } FILTER(isBlank(?jv4)) }
+               || EXISTS { ?jSa ?jq5 ?jv5 FILTER NOT EXISTS { ?jSb ?jq5 ?jv5 } }
+               || EXISTS { ?jSb ?jq6 ?jv6 FILTER NOT EXISTS { ?jSa ?jq6 ?jv6 } })
+      }))
+    # the child subject map: one, an IRI, a template whose references are
+    # all the join column (as many references as occurrences of {c}) or the
+    # reference c; no function, star map, gather map, target
+    ?jTm (rr:subjectMap|rmlc:subjectMap) ?jSm .
+    FILTER NOT EXISTS { ?jTm (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?jSmX FILTER(?jSmX != ?jSm) }
+    FILTER NOT EXISTS { ?jSm (rr:termType|rmlc:termType) ?jTt
+                        FILTER(?jTt NOT IN (rr:IRI, rmlc:IRI, rmlc:URI, rmlc:UnsafeIRI, rmlc:UnsafeURI)) }
+    FILTER NOT EXISTS { ?jSm (rmlc:functionExecution|rmlc:condition|rmlc:quotedTriplesMap|rmlc:gather|rmlc:logicalTarget
+                              |rr:constant|rmlc:constant) ?jX }
+    FILTER NOT EXISTS { ?jSm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?jE1 ,  ?jE2 FILTER(?jE1 != ?jE2) }
+    { ?jSm (rr:template|rmlc:template) ?jTpl } UNION { ?jSm (rml:reference|rmlc:reference|rr:column) ?jRefS }
+    BIND(STR(?jTpl) AS ?jT)
+    BIND(CONCAT("\{", STR(?jCol), "}") AS ?jBraced)
+    FILTER(IF(BOUND(?jTpl),
+              !CONTAINS(?jT, "\\") && CONTAINS(?jT, ?jBraced)
+              && STRLEN(?jT) - STRLEN(REPLACE(?jT, ?jBraced, "", "q"))
+                 = (STRLEN(?jT) - STRLEN(REPLACE(?jT, "\{", "", "q"))) * STRLEN(?jBraced),
+              STR(?jRefS) = STR(?jCol)))
+    # the parent subject map: one, with an expression (not a blank node per
+    # iteration), no star map, gather map, target
+    ?o (rr:subjectMap|rmlc:subjectMap) ?jPsm .
+    FILTER NOT EXISTS { ?o (rr:subjectMap|rmlc:subjectMap|rr:subject|rmlc:subject) ?jPsmX FILTER(?jPsmX != ?jPsm) }
+    FILTER EXISTS { ?jPsm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant|rmlc:functionExecution) ?jPe }
+    FILTER NOT EXISTS { ?jPsm (rmlc:quotedTriplesMap|rmlc:gather|rmlc:logicalTarget) ?jPx }
+    FILTER NOT EXISTS { ?s (rmlc:logicalTarget|rmlc:quotedTriplesMap|rmlc:gather) ?jOx }
+    # the predicates and the graphs: constants
+    FILTER NOT EXISTS { ?jPom (rr:predicateMap|rmlc:predicateMap) ?jPm
+                        FILTER NOT EXISTS { ?jPm (rr:constant|rmlc:constant) ?jPc } }
+    FILTER NOT EXISTS { ?jPom (rr:predicateMap|rmlc:predicateMap) ?jPm2 .
+                        ?jPm2 (rmlc:functionExecution|rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?jPv }
+    FILTER NOT EXISTS { { ?jPom (rr:graphMap|rmlc:graphMap) ?jGm } UNION { ?jSm (rr:graphMap|rmlc:graphMap) ?jGm }
+                        ?jGm (rmlc:functionExecution|rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?jGv }
+    BIND(?s AS ?sameRowOm)
+  }
   OPTIONAL {
     { ?s (rml:source|rmlc:source) ?db . ?db d2rq:jdbcDSN ?dsn }
     UNION

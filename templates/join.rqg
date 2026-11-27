@@ -56,55 +56,82 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
   "} .\n"
 
-  # the child side
-  "    GENERATE \{"
-  TEMPLATE { " " ?cnode " <urn:x-rml2sg:child_" ?h "> ?k" ?h " ." }
-  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
-  TEMPLATE { " " ?cnode " <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p ." } WHERE { FILTER(?records) } .
-  TEMPLATE { " ?s <urn:x-rml2sg:child> true ." } WHERE { FILTER(!?keys) } .
-  # the graph terms of the iteration
-  TEMPLATE { " ?cn <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " ." }
-  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
-  WHERE { FILTER(?rf = "CSV") } .
+  # the child side: a graph of its keys, or (rewriting R9) its iteration
+  # read as a stream, each row looking up the parent keys
   TEMPLATE {
-    " GENERATE \{ ?cn <urn:x-rml2sg:graph_" ?h "> ?g . } "
-    TEMPLATE <templates/referenceIterators.rqg>(?gt, "", "g", ?rf, ?dialect) .
+    "    GENERATE \{"
+    TEMPLATE { " " ?cnode " <urn:x-rml2sg:child_" ?h "> ?k" ?h " ." }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    TEMPLATE { " " ?cnode " <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p ." } WHERE { FILTER(?records) } .
+    TEMPLATE { " ?s <urn:x-rml2sg:child> true ." } WHERE { FILTER(!?keys) } .
+    # the graph terms of the iteration
+    TEMPLATE { " ?cn <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " ." }
+    ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
+    WHERE { FILTER(?rf = "CSV") } .
+    TEMPLATE {
+      " GENERATE \{ ?cn <urn:x-rml2sg:graph_" ?h "> ?g . } "
+      TEMPLATE <templates/referenceIterators.rqg>(?gt, "", "g", ?rf, ?dialect) .
+      "WHERE \{ "
+      TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", "g", "graph", ?rf, ?dialect, ?base) .
+      "} ."
+    }
+    ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
+    WHERE { FILTER(?rf != "CSV") } .
+    " }\n      "
+    TEMPLATE <templates/iteration.rqg>(?tm, "child", ?pom, ?om, ?rf) .
+    "\n      "
+    TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
+    TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) WHERE { FILTER(?records) } .
+    TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("k", ?h), ?rf, ?dialect) . }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
     "WHERE \{ "
-    TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", "g", "graph", ?rf, ?dialect, ?base) .
-    "} ."
-  }
-  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
-  WHERE { FILTER(?rf != "CSV") } .
-  " }\n      "
-  TEMPLATE <templates/iteration.rqg>(?tm, "child", ?pom, ?om, ?rf) .
-  "\n      "
-  TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
-  TEMPLATE <templates/referenceIterators.rqg>(?pt, "", "p", ?rf, ?dialect) WHERE { FILTER(?records) } .
-  TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("k", ?h), ?rf, ?dialect) . }
-  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
-  "WHERE \{ "
-  TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
-  TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(?records) } .
-  TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("k", ?h), "key", ?rf, ?dialect, ?base) . }
-  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
-  TEMPLATE { "BIND(BNODE() AS ?cn) " } WHERE { FILTER(?graphs) } .
-  TEMPLATE { TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?h), "graph", ?rf, ?dialect, ?base) . }
-  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
-  WHERE { FILTER(?rf = "CSV") } .
-  "} .\n  } .\n"
+    TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+    TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(?records) } .
+    TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("k", ?h), "key", ?rf, ?dialect, ?base) . }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    TEMPLATE { "BIND(BNODE() AS ?cn) " } WHERE { FILTER(?graphs) } .
+    TEMPLATE { TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?h), "graph", ?rf, ?dialect, ?base) . }
+    ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
+    WHERE { FILTER(?rf = "CSV") } .
+    "} .\n"
+  } WHERE { FILTER(!?stream) } .
+  "  } .\n"
 
-  # the join
-  "  WHERE \{"
-  TEMPLATE { " ?c <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p . ?r <urn:x-rml2sg:subject> ?o ." }
-  WHERE { FILTER(?records) } .
-  TEMPLATE { " " ?cvar " <urn:x-rml2sg:child_" ?h "> ?x" ?h " . " ?pvar " <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ." }
-  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
-  TEMPLATE { " ?s <urn:x-rml2sg:child> true . ?o <urn:x-rml2sg:parent> true ." } WHERE { FILTER(!?keys) } .
-  TEMPLATE { " OPTIONAL \{ ?c <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " }" }
-  ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt .
-  "\n    "
-  TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(!?records) } .
-  "\n  } .\n"
+  # R9: the iteration of the child at the level of the join, its key bound on
+  # each row (a missing key is an IRI, which no key equals) and looked up
+  TEMPLATE {
+    "  "
+    TEMPLATE <templates/iteration.rqg>(?tm, "child", ?pom, ?om, ?rf) .
+    "\n  "
+    TEMPLATE <templates/referenceIterators.rqg>(?st, "", "s", ?rf, ?dialect) .
+    TEMPLATE { TEMPLATE <templates/referenceIterators.rqg>(?jt, ?jr, CONCAT("kx", ?h), ?rf, ?dialect) . }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    "\n  WHERE \{ "
+    TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
+    TEMPLATE {
+      TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("kx", ?h), "key", ?rf, ?dialect, ?base) .
+      "BIND(COALESCE(?kx" ?h ", <urn:x-rml2sg:none>) AS ?x" ?h ") ?o <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ."
+    }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    "\n    "
+    TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
+    "\n  } .\n"
+  } WHERE { FILTER(?stream) } .
+
+  # the join of the two graphs
+  TEMPLATE {
+    "  WHERE \{"
+    TEMPLATE { " ?c <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p . ?r <urn:x-rml2sg:subject> ?o ." }
+    WHERE { FILTER(?records) } .
+    TEMPLATE { " " ?cvar " <urn:x-rml2sg:child_" ?h "> ?x" ?h " . " ?pvar " <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ." }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
+    TEMPLATE { " ?s <urn:x-rml2sg:child> true . ?o <urn:x-rml2sg:parent> true ." } WHERE { FILTER(!?keys) } .
+    TEMPLATE { " OPTIONAL \{ ?c <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " }" }
+    ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt .
+    "\n    "
+    TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(!?records) } .
+    "\n  } .\n"
+  } WHERE { FILTER(!?stream) } .
 }
 WHERE {
   ?om (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
@@ -124,6 +151,30 @@ WHERE {
                 ?gm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?gv } AS ?graphs)
   BIND((EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j2, ?j3 . FILTER(?j2 != ?j3) }
         || EXISTS { ?pt (rr:template|rmlc:template|rml:reference|rmlc:reference) ?pv } || ?graphs) AS ?records)
+  # rewriting R9 (README.md): the child, a CSV source (not a logical view),
+  # is read as a stream when the join has one condition, a constant
+  # predicate, no graph map with an expression (the direct form), and when
+  # the parent's subject depends on the parent's reference of the condition
+  # only (an IRI template whose references are all that reference, or that
+  # reference): each child row then finds at most one parent subject, and the
+  # join costs the rows of the child. It is exact in any case: the parent
+  # side is the same graph, and a row of the child generates the triples of
+  # its key that the graph of the child keys would.
+  BIND(!?records && ?keys && ?rf = "CSV"
+       && NOT EXISTS { ?tm (rml:logicalSource|rmlc:logicalSource)/rmlc:viewOn ?anyView }
+       && NOT EXISTS { ?om (rr:joinCondition|rmlc:joinCondition)/(rmlc:childMap|rmlc:parentMap) ?anyJm }
+       && NOT EXISTS { ?psm (rmlc:functionExecution|rmlc:condition|rmlc:quotedTriplesMap|rmlc:gather) ?anyPf }
+       && NOT EXISTS { ?psm (rr:termType|rmlc:termType) ?ptt FILTER(?ptt IN (rr:BlankNode, rmlc:BlankNode, rr:Literal, rmlc:Literal)) }
+       && EXISTS {
+         ?om (rr:joinCondition|rmlc:joinCondition)/(rr:parent|rmlc:parent) ?spr .
+         { ?psm (rr:template|rmlc:template) ?sptpl } UNION { ?psm (rml:reference|rmlc:reference|rr:column) ?spref }
+         FILTER(IF(BOUND(?sptpl),
+                   !CONTAINS(STR(?sptpl), "\\") && !REGEX(STR(?spr), "[\\\\\{}]")
+                   && CONTAINS(STR(?sptpl), CONCAT("\{", STR(?spr), "}"))
+                   && STRLEN(STR(?sptpl)) - STRLEN(REPLACE(STR(?sptpl), CONCAT("\{", STR(?spr), "}"), "", "q"))
+                      = (STRLEN(STR(?sptpl)) - STRLEN(REPLACE(STR(?sptpl), "\{", "", "q"))) * STRLEN(CONCAT("\{", STR(?spr), "}")),
+                   STR(?spref) = STR(?spr)))
+       } AS ?stream)
   BIND(IF(?graphs, "?cn", IF(?records, "_:c", "?s")) AS ?cnode)
   BIND(IF(?records, "_:r", "?o") AS ?pnode)
   # in the join pattern, the iteration nodes are variables
