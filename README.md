@@ -200,12 +200,16 @@ leave the iterated element (`iter:CSVStrict`, `iter:SPARQL`, relative `iter:XPat
 sub-queries) and for relational databases (`iter:SQL` with named columns and natural
 literals), and 2.6.0 or later otherwise: the generated queries use `RAISE` (data
 errors) and `iter:CSVHeaders` on a file. With 2.6.0, use the translator 0.3.0. With 2.4.0 to 2.5.0, use the translator
-at commit `5fa291a`. Graph maps are translated into
+at commit `5fa291a`. SPARQL-Generate 2.6.2 or later is recommended for large sources: it
+reads a CSV or JSON file in batches when the output does not depend on them, and generates
+the joins of R9 over the graph of the parent keys (`FROM GENERATE`) as they are read, so that
+the translated GTFS-Madrid-Bench mapping runs at scale 1000 in less than 10 GB.
+Graph maps are translated into
 `GRAPH` blocks of the `GENERATE` template (quad patterns), as are logical targets.
 
 ## Conformance
 
-Measured by kgc-bench with SPARQL-Generate 2.6.1, by RDF dataset isomorphism with the
+Measured by kgc-bench with SPARQL-Generate 2.6.2, by RDF dataset isomorphism with the
 expected output of each case, the default graph and every named graph; the logical
 targets are written to their files (`--graphs-to-files`, `--targets`) and compared with
 the expected `dumpN.*` files; an expected error passes when an error is raised (with
