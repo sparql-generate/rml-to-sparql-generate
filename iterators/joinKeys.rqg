@@ -3,8 +3,8 @@
 #   ?h   the name of its only condition (?h of iterators/joinConditions.rqg),
 #        or "keys" for several: their values are then compared as one
 #        composite key (templates/compositeKey.rqg), looked up at once instead
-#        of one condition after the other, so that a condition shared by many
-#        rows (a feed identifier) does not make a join of their product
+#        of one condition after the other, so that the join on a condition
+#        shared by many rows (a feed identifier) does not cost their product
 PREFIX rr:   <http://www.w3.org/ns/r2rml#>
 PREFIX rmlc: <http://w3id.org/rml/>
 

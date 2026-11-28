@@ -4,8 +4,8 @@
 # templates/viewJoins.rqg), in the order of iterators/joinConditions.rqg, each
 # value preceded by its length and ":". Nothing for a join with one condition.
 #
-# The encoding is injective: the length tells where each value ends, whatever
-# characters it holds, so two composite keys are equal exactly when every
+# The encoding is injective: with the length, the end of each value is known,
+# whatever characters it holds, so two composite keys are equal exactly when every
 # condition holds (the values compared as strings). A missing value leaves
 # the composite key unbound (CONCAT and STRLEN of an unbound variable are
 # errors): a row that misses one key matches no row, on either side.

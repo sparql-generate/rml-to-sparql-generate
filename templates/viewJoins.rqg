@@ -19,8 +19,8 @@
 # their product (a pattern with a free key, filtered by equality, would scan the
 # parent records for every row). Several join conditions make one composite key
 # (iterators/joinKeys.rqg, templates/compositeKey.rqg: <lvk_J_keys>), looked up
-# at once, not one condition after the other (which would scan the parent
-# records of the same value of the first condition). Keys are compared as
+# at once, not one condition after the other (a scan of the parent records
+# with the same value of the first condition). Keys are compared as
 # strings; a child key
 # without value is an IRI, which no key equals, so it joins nothing (a left
 # join keeps the row, its fields unbound; an inner join drops it); a parent

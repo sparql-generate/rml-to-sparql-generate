@@ -193,9 +193,9 @@ A join with several conditions (`(feed_id, trip_id)`, a referencing object map o
 logical views) compares one composite key: the values of its conditions, as strings, each
 preceded by its length and `:` (`"1:A2:r1"`), an encoding without collision whatever the
 values hold; a missing value of any condition leaves the key unbound, so the row joins
-nothing. The key is looked up at once: one key per condition, joined one condition after
-the other, would pair every child and parent row with the same value of the first condition
-(the feed) before testing the next, a quadratic join within each feed.
+nothing. The key is looked up at once: with one key per condition, joined one condition after
+the other, the join costs every pair of child and parent rows with the same value of the
+first condition (the feed), the next tested afterwards: a quadratic join within each feed.
 
 Gather maps over a CSV source need SPARQL-Generate 2.5.0 or later: the order of
 the rows is the position that `iter:CSV` gives after the named columns (on an

@@ -17,9 +17,9 @@
 # (_:c, _:r) with its subject, predicate and key. Several join conditions
 # make one composite key (iterators/joinKeys.rqg, templates/compositeKey.rqg:
 # <urn:x-rml2sg:child_keys>, <urn:x-rml2sg:parent_keys>), looked up at once:
-# a key triple per condition, joined one condition after the other, would
-# pair every child and parent of the same value of the first condition (a
-# feed identifier) before testing the others. A missing key value generates
+# with a key triple per condition, the join of one condition after the other
+# costs every pair of a child and a parent with the same value of the first
+# condition (a feed identifier), the others tested afterwards. A missing key value generates
 # no key triple, hence no join; keys are compared as strings
 # (iterators/joinConditions.rqg names each condition).
 # Iterating over the parent for each child iteration would give the same
