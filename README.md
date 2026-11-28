@@ -217,7 +217,8 @@ Graph maps are translated into
 
 ## Conformance
 
-Measured by kgc-bench with SPARQL-Generate 2.6.2, by RDF dataset isomorphism with the
+Measured by kgc-bench with SPARQL-Generate 2.6.3 and pysparql-generate 0.4.2, the same case by case (the SQL
+tracks with 2.6.2 and the translator 0.5.2), by RDF dataset isomorphism with the
 expected output of each case, the default graph and every named graph; the logical
 targets are written to their files (`--graphs-to-files`, `--targets`) and compared with
 the expected `dumpN.*` files; an expected error passes when an error is raised (with
