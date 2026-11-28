@@ -11,120 +11,13 @@
 #                      ?pom: subject map, predicate maps, graph maps, child keys;
 #   ?scope = "parent"  the parent side: parent subject map, parent keys;
 #   ?scope = "term"    the single term map ?tm.
-PREFIX rr:   <http://www.w3.org/ns/r2rml#>
-PREFIX rml:  <http://semweb.mmlab.be/ns/rml#>
-PREFIX rmlc: <http://w3id.org/rml/>
-PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+#
+# The union of the pieces reached from each parameter (iterators/piecesOf.rqg:
+# ?tm as a triples map or a term map, ?pom, ?om), one call per parameter, so
+# that each call follows the mapping from its node only.
 
-SELECT <iterators/pieces.rqg>(?scope, ?tm, ?pom, ?om)
-       (GROUP_CONCAT(?piece; separator="") AS ?all)
-WHERE {
-  {
-    # term maps
-    {
-      {
-        # (?tm is matched by a triple pattern: a BIND or FILTER in a UNION
-        # branch does not see the bindings of the caller)
-        BIND("term" AS ?scope)
-        ?tm (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)*/(rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anyValue .
-        BIND(?tm AS ?t)
-      } UNION {
-        BIND("tm" AS ?scope)
-        { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
-        UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
-        UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap|rr:graphMap|rmlc:graphMap) ?t }
-        UNION { ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rmlc:languageMap|rmlc:datatypeMap) ?t }
-        # the term maps of the triples maps quoted by star maps (RML-star), on
-        # the same iteration (without join), the child keys of the others
-        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)) ?sx0 .
-                FILTER NOT EXISTS { ?sx0 rmlc:joinCondition ?anon6 }
-                ?sx0 (rmlc:quotedTriplesMap/(rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap)))+ ?t }
-        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)) ?sjx .
-                ?sjx rmlc:quotedTriplesMap ?anon7 ; rmlc:joinCondition/rmlc:childMap ?t }
-        # the members of gather maps (RML-CC), nested ones included
-        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+ ?t }
-        # their referencing object maps: the parent's subject (no join), the child keys
-        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+ ?grom .
-                ?grom rmlc:parentTriplesMap/rmlc:subjectMap ?t .
-                FILTER NOT EXISTS { ?grom rmlc:joinCondition ?anon5 } }
-        UNION { ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+/rmlc:joinCondition/rmlc:childMap ?t }
-        UNION {
-          ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?rom .
-          ?rom (rr:parentTriplesMap|rmlc:parentTriplesMap) ?ptm .
-          FILTER NOT EXISTS { ?rom (rr:joinCondition|rmlc:joinCondition) ?anon1 }
-          ?tm (rml:logicalSource|rmlc:logicalSource) ?ls1 .
-          ?ptm (rml:logicalSource|rmlc:logicalSource) ?ls2 .
-          FILTER(?ls1 = ?ls2 || EXISTS {
-          # effectively equal logical sources: same source, reference
-          # formulation and iterator
-          ?ls1 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfa .
-          ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?rfa .
-          OPTIONAL { ?ls1 (rml:source|rmlc:source) ?sa FILTER(isLiteral(?sa)) }
-          OPTIONAL { ?ls1 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?pa }
-          OPTIONAL { ?ls2 (rml:source|rmlc:source) ?sb FILTER(isLiteral(?sb)) }
-          OPTIONAL { ?ls2 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?pb }
-          OPTIONAL { ?ls1 (rml:iterator|rmlc:iterator) ?ia }
-          OPTIONAL { ?ls2 (rml:iterator|rmlc:iterator) ?ib }
-          FILTER(STR(COALESCE(?pa, ?sa, "")) = STR(COALESCE(?pb, ?sb, ""))
-                 && STR(COALESCE(?ia, "")) = STR(COALESCE(?ib, "")))
-        })
-          ?ptm (rr:subjectMap|rmlc:subjectMap) ?t
-        }
-        UNION {
-          # a join made on the same row (rewriting R8): the parent's subject
-          ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?srom .
-          ?srom <urn:x-rml2sg:sameRow> true ; (rr:parentTriplesMap|rmlc:parentTriplesMap)/(rr:subjectMap|rmlc:subjectMap) ?t
-        }
-        UNION {
-          # a blank node subject without expression: its joins are made in its
-          # iteration (templates/joinInIteration.rqg), which reads the child keys
-          ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:joinCondition|rmlc:joinCondition)/rmlc:childMap ?t .
-          FILTER(EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap) ?bs .
-                         ?bs (rr:termType|rmlc:termType) ?btt . FILTER(?btt IN (rr:BlankNode, rmlc:BlankNode))
-                         FILTER NOT EXISTS { ?bs (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant) ?bx } })
-        }
-      } UNION {
-        BIND("child" AS ?scope)
-        { ?tm (rr:subjectMap|rmlc:subjectMap) ?t }
-        UNION { ?tm (rr:subjectMap|rmlc:subjectMap)/(rr:graphMap|rmlc:graphMap) ?t }
-        UNION { ?pom (rr:predicateMap|rmlc:predicateMap|rr:graphMap|rmlc:graphMap) ?t }
-        UNION { ?om (rr:joinCondition|rmlc:joinCondition)/rmlc:childMap ?t }
-      } UNION {
-        BIND("parent" AS ?scope)
-        { ?om (rr:parentTriplesMap|rmlc:parentTriplesMap)/(rr:subjectMap|rmlc:subjectMap) ?t }
-        UNION { ?om (rr:joinCondition|rmlc:joinCondition)/rmlc:parentMap ?t }
-        # a star map with a join (RML-star): the term maps of its quoted triples map
-        UNION { ?om rmlc:quotedTriplesMap/((rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap))/rmlc:quotedTriplesMap)*/(rmlc:subjectMap|rmlc:predicateObjectMap/(rmlc:predicateMap|rmlc:objectMap)) ?t }
-      }
-    }
-    # the term map, and the input value maps of its functions and conditions
-    # (RML-FNML), nested ones included
-    ?t (rmlc:functionExecution/rmlc:input/rmlc:inputValueMap|rmlc:condition)* ?t2 .
-    OPTIONAL { ?t2 (rr:template|rmlc:template) ?tpl }
-    OPTIONAL { ?t2 (rml:reference|rmlc:reference|rr:column) ?r }
-  } UNION {
-    # references given as strings: rr:child, rr:parent
-    {
-      BIND("child" AS ?scope)
-      ?om (rr:joinCondition|rmlc:joinCondition)/(rr:child|rmlc:child) ?r
-    } UNION {
-      BIND("tm" AS ?scope)
-      ?tm (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)/(rr:joinCondition|rmlc:joinCondition)/(rr:child|rmlc:child) ?r .
-      FILTER(EXISTS { ?tm (rr:subjectMap|rmlc:subjectMap) ?bs .
-                         ?bs (rr:termType|rmlc:termType) ?btt . FILTER(?btt IN (rr:BlankNode, rmlc:BlankNode))
-                         FILTER NOT EXISTS { ?bs (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rr:constant|rmlc:constant) ?bx } })
-    } UNION {
-      BIND("parent" AS ?scope)
-      ?om (rr:joinCondition|rmlc:joinCondition)/(rr:parent|rmlc:parent) ?r
-    } UNION {
-      BIND("tm" AS ?scope)
-      ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap))/(rmlc:gather/rdf:rest*/rdf:first)+/rmlc:joinCondition/rmlc:child ?r
-    } UNION {
-      BIND("tm" AS ?scope)
-      ?tm ((rr:subjectMap|rmlc:subjectMap)|(rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap)) ?sjr .
-      ?sjr rmlc:quotedTriplesMap ?anon8 ; rmlc:joinCondition/rmlc:child ?r
-    }
-  }
-  BIND(COALESCE(STR(?tpl), CONCAT("\{", REPLACE(STR(?r), "([\\\\\{}])", "\\\\$1"), "}")) AS ?piece)
-  FILTER(BOUND(?piece))
-}
+SELECT <iterators/pieces.rqg>(?scope, ?tm, ?pom, ?om) (CONCAT(?a, ?b, ?c) AS ?all)
+ITERATOR <iterators/piecesOf.rqg>(?scope, "tm", ?tm) AS ?a
+ITERATOR <iterators/piecesOf.rqg>(?scope, "pom", ?pom) AS ?b
+ITERATOR <iterators/piecesOf.rqg>(?scope, "om", ?om) AS ?c
+WHERE { }

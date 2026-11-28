@@ -32,6 +32,30 @@ WHERE {
   OPTIONAL { ?tm rmlc:baseIRI ?b }
   BIND(COALESCE(STR(?b), ?base) AS ?tmbase)
   OPTIONAL {
+    # the shared sources first (evaluated once), then the candidate triples
+    # maps, joined by ?src: in the other order, the engine evaluates the
+    # sources again for every candidate (a time in the square of the number
+    # of triples maps)
+    { SELECT ?src WHERE {
+        ?tm2 (rml:logicalSource|rmlc:logicalSource) ?ls2 .
+        ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?rf2 .
+        FILTER(REPLACE(STR(?rf2), "^.*[#/]", "") = "CSV")
+        FILTER NOT EXISTS { ?ls2 <urn:x-rml2sg:sql> true }
+        FILTER NOT EXISTS { ?ls2 rmlc:source/rmlc:null ?anyNull2 }
+        OPTIONAL { ?ls2 (rml:source|rmlc:source) ?s2 FILTER(isLiteral(?s2)) }
+        OPTIONAL { ?ls2 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p2 }
+        BIND(STR(COALESCE(?p2, ?s2)) AS ?src)
+        FILTER EXISTS {
+          { ?tm2 (rr:subjectMap|rmlc:subjectMap) ?t2 }
+          UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap) ?t2 }
+          ?t2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anon3 }
+        FILTER NOT EXISTS {
+          { ?tm2 (rr:subjectMap|rmlc:subjectMap) ?u2 }
+          UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?u2 }
+          ?u2 (rr:termType|rmlc:termType) ?tt2 . FILTER(?tt2 IN (rr:BlankNode, rmlc:BlankNode))
+          FILTER NOT EXISTS { ?u2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 } }
+        FILTER NOT EXISTS { ?tm2 (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap)/rmlc:joinCondition ?anon6 }
+      } GROUP BY ?src HAVING (COUNT(DISTINCT ?tm2) > 1) }
     { SELECT ?tm ?src WHERE {
         ?tm (rml:logicalSource|rmlc:logicalSource) ?ls .
         ?ls (rml:referenceFormulation|rmlc:referenceFormulation) ?rf1 .
@@ -56,26 +80,6 @@ WHERE {
         # star maps with a join (RML-star): translated alone (templates/starJoins.rqg)
         FILTER NOT EXISTS { ?tm (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap)/rmlc:joinCondition ?anon5 }
       } }
-    { SELECT ?src WHERE {
-        ?tm2 (rml:logicalSource|rmlc:logicalSource) ?ls2 .
-        ?ls2 (rml:referenceFormulation|rmlc:referenceFormulation) ?rf2 .
-        FILTER(REPLACE(STR(?rf2), "^.*[#/]", "") = "CSV")
-        FILTER NOT EXISTS { ?ls2 <urn:x-rml2sg:sql> true }
-        FILTER NOT EXISTS { ?ls2 rmlc:source/rmlc:null ?anyNull2 }
-        OPTIONAL { ?ls2 (rml:source|rmlc:source) ?s2 FILTER(isLiteral(?s2)) }
-        OPTIONAL { ?ls2 (rml:source|rmlc:source)/(rmlc:path|rmlc:file) ?p2 }
-        BIND(STR(COALESCE(?p2, ?s2)) AS ?src)
-        FILTER EXISTS {
-          { ?tm2 (rr:subjectMap|rmlc:subjectMap) ?t2 }
-          UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:predicateMap|rmlc:predicateMap|rr:objectMap|rmlc:objectMap) ?t2 }
-          ?t2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column) ?anon3 }
-        FILTER NOT EXISTS {
-          { ?tm2 (rr:subjectMap|rmlc:subjectMap) ?u2 }
-          UNION { ?tm2 (rr:predicateObjectMap|rmlc:predicateObjectMap)/(rr:objectMap|rmlc:objectMap) ?u2 }
-          ?u2 (rr:termType|rmlc:termType) ?tt2 . FILTER(?tt2 IN (rr:BlankNode, rmlc:BlankNode))
-          FILTER NOT EXISTS { ?u2 (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:constant|rmlc:constant) ?anon4 } }
-        FILTER NOT EXISTS { ?tm2 (rmlc:subjectMap|rmlc:predicateObjectMap/rmlc:objectMap)/rmlc:joinCondition ?anon6 }
-      } GROUP BY ?src HAVING (COUNT(DISTINCT ?tm2) > 1) }
   }
   BIND(COALESCE(?src, "") AS ?group)
 }

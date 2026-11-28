@@ -1,0 +1,9 @@
+# The triples maps of the shared CSV source ?src (rewriting R3, README.md,
+# iterators/tms.rqg), with their base IRI: the members of one group, so that
+# templates/csvGroup.rqg calls the iterators of a triples map (its
+# predicate-object maps, its graph maps) for the members of its group only,
+# and not for every triples map of the mapping.
+SELECT <iterators/groupTms.rqg>(?base, ?src) ?tm ?tmbase
+ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+WHERE { FILTER(?group = ?src) }
+ORDER BY ?tm

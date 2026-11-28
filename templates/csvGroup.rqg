@@ -17,24 +17,22 @@ PREFIX afn:  <http://jena.apache.org/ARQ/function#>
 TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
   "\n  # triples maps"
   TEMPLATE { " <" STR(?tm) ">" }
-  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
-  WHERE { FILTER(?group = ?src) } .
+  ITERATOR <iterators/groupTms.rqg>(?base, ?src) AS ?tm ?tmbase
+  .
   ", one iteration of " ?srcText "\n  GENERATE \{\n"
 
   # the classes of each triples map
   TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?sm, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, <urn:x-rml2sg:none>, CONCAT("?s_", ?t, " a <", STR(?class), "> ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
-  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/groupTms.rqg>(?base, ?src) AS ?tm ?tmbase
   WHERE {
-    FILTER(?group = ?src)
     ?tm (rr:subjectMap|rmlc:subjectMap) ?sm . ?sm (rr:class|rmlc:class) ?class .
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
   # the triples of each pair of term maps, in their graphs (templates/graphs.rqg)
   TEMPLATE { "    " TEMPLATE <templates/graphs.rqg>(?st, ?pom, ?pt, ?ot, CONCAT("?s_", ?t, " ?p_", ?t, "_", ?key, " ?o_", ?t, "_", ?key, " ."), "var", CONCAT(?t, "_"), "CSV", ?dialect, ?tmbase) . "\n" }
-  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/groupTms.rqg>(?base, ?src) AS ?tm ?tmbase
   ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE {
-    FILTER(?group = ?src)
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
 
@@ -51,9 +49,8 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
   TEMPLATE {
     "\n  " TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", CONCAT("s_", ?t), "subject", "CSV", ?dialect, ?tmbase) .
   }
-  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/groupTms.rqg>(?base, ?src) AS ?tm ?tmbase
   WHERE {
-    FILTER(?group = ?src)
     OPTIONAL { ?tm (rr:subjectMap|rmlc:subjectMap) ?sm1 }
     OPTIONAL { ?tm (rr:subject|rmlc:subject) ?sc1 }
     BIND(COALESCE(?sm1, <urn:x-rml2sg:none>) AS ?st)
@@ -65,10 +62,9 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
     "\n  " TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", CONCAT("p_", ?t, "_", ?key), "predicate", "CSV", ?dialect, ?tmbase) .
     TEMPLATE <templates/termMap.rqg>(?ot, ?oc, "", CONCAT("o_", ?t, "_", ?key), ?okind, "CSV", ?dialect, ?obase) .
   }
-  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/groupTms.rqg>(?base, ?src) AS ?tm ?tmbase
   ITERATOR <iterators/poms.rqg>(?tm) AS ?key ?st ?sc ?pt ?pc ?ot ?oc ?okind ?pbiri ?pom
   WHERE {
-    FILTER(?group = ?src)
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
     # the parent's subject is built against the parent's base IRI
     BIND(IF(?okind = "subject", IF(?pbiri != "", ?pbiri, ?base), ?tmbase) AS ?obase)
@@ -77,10 +73,9 @@ TEMPLATE <templates/csvGroup.rqg>(?src, ?dialect, ?base) {
   TEMPLATE {
     "\n  " TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?t, "_", ?h), "graph", "CSV", ?dialect, ?tmbase) .
   }
-  ITERATOR <iterators/tms.rqg>(?base) AS ?tm ?rf ?tmbase ?group
+  ITERATOR <iterators/groupTms.rqg>(?base, ?src) AS ?tm ?tmbase
   ITERATOR <iterators/graphMaps.rqg>(?tm, <urn:x-rml2sg:none>) AS ?h ?gt
   WHERE {
-    FILTER(?group = ?src)
     BIND(MD5(IF(isBlank(?tm), afn:bnode(?tm), STR(?tm))) AS ?t)
   } .
   "\n  } .\n"

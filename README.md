@@ -197,6 +197,13 @@ nothing. The key is looked up at once: with one key per condition, joined one co
 the other, the join costs every pair of child and parent rows with the same value of the
 first condition (the feed), the next tested afterwards: a quadratic join within each feed.
 
+The time of the translation grows with the size of the mapping: the GTFS-Madrid-Bench
+mapping once per feed, 100 feeds and 1 300 triples maps, translates in about 80 s with
+SPARQL-Generate 2.6.3 (0.5.3 and earlier: over 600 s). Each query of the translator follows
+the mapping from the nodes it is called with; a query that would read the whole mapping for
+every triples map (a pattern joined to its parameters only after its evaluation, a path whose
+first step has two free ends) costs the square of the number of triples maps.
+
 Gather maps over a CSV source need SPARQL-Generate 2.5.0 or later: the order of
 the rows is the position that `iter:CSV` gives after the named columns (on an
 earlier version, the iteration has no solution). Over JSONPath and XPath sources, 2.4.0
