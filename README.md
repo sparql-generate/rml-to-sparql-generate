@@ -252,7 +252,8 @@ the cases of kgc-bench (`conformance/extra`) for graph maps in a shared CSV iter
 joins, and with JSONPath values in number other than one, and for the joins of rewritings R8
 and R9 (a CSV file joined with itself, logical sources of the same description or not, a
 child or a parent subject that depends on the join column only, a duplicate row, a child read
-as a stream, empty keys).
+as a stream, empty keys), and for the left and inner joins of logical views (empty keys on
+both sides, two matches, a null field of the parent; X012).
 
 ## History
 
