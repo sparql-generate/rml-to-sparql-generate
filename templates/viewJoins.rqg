@@ -17,7 +17,11 @@
 # The graph of the parent records is generated once; each row of the child looks
 # its key up in it, so a join costs the rows of the child and the matches, not
 # their product (a pattern with a free key, filtered by equality, would scan the
-# parent records for every row). Keys are compared as strings; a child key
+# parent records for every row). Several join conditions make one composite key
+# (iterators/joinKeys.rqg, templates/compositeKey.rqg: <lvk_J_keys>), looked up
+# at once, not one condition after the other (which would scan the parent
+# records of the same value of the first condition). Keys are compared as
+# strings; a child key
 # without value is an IRI, which no key equals, so it joins nothing (a left
 # join keeps the row, its fields unbound; an inner join drops it); a parent
 # key without value generates no key triple.
@@ -30,7 +34,7 @@ TEMPLATE <templates/viewJoins.rqg>(?view, ?part) {
     TEMPLATE {
       "    GENERATE \{"
       TEMPLATE { " ?r <urn:x-rml2sg:lvk_" ?J "_" ?h "> ?k" ?h " ." }
-      ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+      ITERATOR <iterators/joinKeys.rqg>(?j) AS ?h .
       TEMPLATE { " ?r <urn:x-rml2sg:lvf_" ?J "_" ?hv "> ?f" ?hv " ; <urn:x-rml2sg:lvi_" ?J "_" ?hv "> ?i" ?hv " ." }
       WHERE { ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv) } .
       " }\n    "
@@ -38,6 +42,7 @@ TEMPLATE <templates/viewJoins.rqg>(?view, ?part) {
       "WHERE \{ "
       TEMPLATE { "BIND(STR(" TEMPLATE <templates/viewExpr.rqg>(?pt, ?pr, "p_") . ") AS ?k" ?h ") " }
       ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+      TEMPLATE <templates/compositeKey.rqg>(?j, "k") .
       TEMPLATE {
         "BIND(" TEMPLATE <templates/viewExpr.rqg>(?jf, "", "p_") . " AS ?f" ?hv ") "
         "BIND(" ?indexText " AS ?i" ?hv ") "
@@ -57,11 +62,23 @@ TEMPLATE <templates/viewJoins.rqg>(?view, ?part) {
   } WHERE { FILTER(?part = "graphs" && EXISTS { ?view (rmlc:leftJoin|rmlc:innerJoin) ?anyj }) } .
 
   TEMPLATE {
-    TEMPLATE { "\n  BIND(COALESCE(STR(" TEMPLATE <templates/viewExpr.rqg>(?ct, ?cr, "c_") . "), <urn:x-rml2sg:none>) AS ?lvk" ?J "_" ?h ")" }
-    ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+    # one condition: its key; several: their values, then the composite key
+    TEMPLATE {
+      TEMPLATE { "\n  BIND(COALESCE(STR(" TEMPLATE <templates/viewExpr.rqg>(?ct, ?cr, "c_") . "), <urn:x-rml2sg:none>) AS ?lvk" ?J "_" ?h ")" }
+      ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr
+      WHERE { FILTER(?kh != "keys") } .
+      TEMPLATE { "\n  BIND(STR(" TEMPLATE <templates/viewExpr.rqg>(?ct, ?cr, "c_") . ") AS ?lvc" ?J "_" ?h ")" }
+      ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr
+      WHERE { FILTER(?kh = "keys") } .
+      TEMPLATE {
+        "\n  " TEMPLATE <templates/compositeKey.rqg>(?j, CONCAT("lvc", ?J, "_")) .
+        "BIND(COALESCE(?lvc" ?J "_keys, <urn:x-rml2sg:none>) AS ?lvk" ?J "_keys)"
+      } WHERE { FILTER(?kh = "keys") } .
+    }
+    ITERATOR <iterators/joinKeys.rqg>(?j) AS ?kh .
     "\n  " ?open
     TEMPLATE { " ?lvr" ?J " <urn:x-rml2sg:lvk_" ?J "_" ?h "> ?lvk" ?J "_" ?h " ." }
-    ITERATOR <iterators/joinConditions.rqg>(?j) AS ?h ?ct ?cr ?pt ?pr .
+    ITERATOR <iterators/joinKeys.rqg>(?j) AS ?h .
     TEMPLATE { " OPTIONAL \{ ?lvr" ?J " <urn:x-rml2sg:lvf_" ?J "_" ?hv "> ?c_" ?hv " } OPTIONAL \{ ?lvr" ?J " <urn:x-rml2sg:lvi_" ?J "_" ?hv "> ?c_" ?hi " }" }
     WHERE { ?j rmlc:field ?jf . ?jf rmlc:fieldName ?n . BIND(MD5(STR(?n)) AS ?hv) BIND(MD5(CONCAT(STR(?n), ".#")) AS ?hi) } .
     ?close

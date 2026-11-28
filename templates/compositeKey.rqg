@@ -1,0 +1,22 @@
+# The composite key of a join with several conditions (iterators/joinKeys.rqg:
+# "keys"): the BIND clause that binds ?<P>keys to one string made of the
+# values ?<P><h> of its conditions (strings, bound by templates/termMap.rqg or
+# templates/viewJoins.rqg), in the order of iterators/joinConditions.rqg, each
+# value preceded by its length and ":". Nothing for a join with one condition.
+#
+# The encoding is injective: the length tells where each value ends, whatever
+# characters it holds, so two composite keys are equal exactly when every
+# condition holds (the values compared as strings). A missing value leaves
+# the composite key unbound (CONCAT and STRLEN of an unbound variable are
+# errors): a row that misses one key matches no row, on either side.
+TEMPLATE <templates/compositeKey.rqg>(?om, ?P) {
+  TEMPLATE {
+    "BIND(CONCAT(\"\""
+    TEMPLATE { ", STR(STRLEN(?" ?P ?h ")), \":\", ?" ?P ?h }
+    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?pt ?pr .
+    ") AS ?" ?P "keys) "
+  }
+  ITERATOR <iterators/joinKeys.rqg>(?om) AS ?kh
+  WHERE { FILTER(?kh = "keys") } .
+}
+WHERE { }

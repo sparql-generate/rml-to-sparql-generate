@@ -1,0 +1,21 @@
+# The key of the join of referencing object map ?om (or of a join of logical
+# views, RML-LV), one row when it has join conditions:
+#   ?h   the name of its only condition (?h of iterators/joinConditions.rqg),
+#        or "keys" for several: their values are then compared as one
+#        composite key (templates/compositeKey.rqg), looked up at once instead
+#        of one condition after the other, so that a condition shared by many
+#        rows (a feed identifier) does not make a join of their product
+PREFIX rr:   <http://www.w3.org/ns/r2rml#>
+PREFIX rmlc: <http://w3id.org/rml/>
+
+SELECT <iterators/joinKeys.rqg>(?om) (IF(COUNT(DISTINCT ?h0) > 1, "keys", SAMPLE(?h0)) AS ?h)
+WHERE {
+  ?om (rr:joinCondition|rmlc:joinCondition) ?jc .
+  OPTIONAL { ?jc (rr:child|rmlc:child) ?cr0 }
+  OPTIONAL { ?jc (rr:parent|rmlc:parent) ?pr0 }
+  OPTIONAL { ?jc rmlc:childMap/(rmlc:reference|rmlc:template|rmlc:constant) ?cv }
+  OPTIONAL { ?jc rmlc:parentMap/(rmlc:reference|rmlc:template|rmlc:constant) ?pv }
+  # as in iterators/joinConditions.rqg
+  BIND(MD5(CONCAT(STR(COALESCE(?cr0, ?cv, "")), "|", STR(COALESCE(?pr0, ?pv, "")))) AS ?h0)
+}
+HAVING (COUNT(?h0) > 0)

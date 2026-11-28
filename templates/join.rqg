@@ -12,11 +12,16 @@
 #
 # A graph is a set: a child subject with the same key in many iterations is
 # one triple, so the join costs the size of its result, not the product of
-# the iterations that share a key (shapes and their points in GTFS). With
-# several join conditions, or a predicate that depends on the child
-# iteration, each iteration is a node (_:c, _:r) with its subject, predicate
-# and keys. A missing key value generates no key triple, hence no join; keys
-# are compared as strings (iterators/joinConditions.rqg names each condition).
+# the iterations that share a key (shapes and their points in GTFS). With a
+# predicate that depends on the child iteration, each iteration is a node
+# (_:c, _:r) with its subject, predicate and key. Several join conditions
+# make one composite key (iterators/joinKeys.rqg, templates/compositeKey.rqg:
+# <urn:x-rml2sg:child_keys>, <urn:x-rml2sg:parent_keys>), looked up at once:
+# a key triple per condition, joined one condition after the other, would
+# pair every child and parent of the same value of the first condition (a
+# feed identifier) before testing the others. A missing key value generates
+# no key triple, hence no join; keys are compared as strings
+# (iterators/joinConditions.rqg names each condition).
 # Iterating over the parent for each child iteration would give the same
 # set of triples, at the cost of the product of the two sources.
 #
@@ -41,7 +46,7 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   # the parent side
   "    GENERATE \{"
   TEMPLATE { " " ?pnode " <urn:x-rml2sg:parent_" ?h "> ?q" ?h " ." }
-  ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
+  ITERATOR <iterators/joinKeys.rqg>(?om) AS ?h .
   TEMPLATE { " _:r <urn:x-rml2sg:subject> ?o ." } WHERE { FILTER(?records) } .
   TEMPLATE { " ?o <urn:x-rml2sg:parent> true ." } WHERE { FILTER(!?keys) } .
   " }\n      "
@@ -54,6 +59,7 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   TEMPLATE <templates/termMap.rqg>(?psm, <urn:x-rml2sg:none>, "", "o", "subject", ?prf, ?dialect, ?pbase) .
   TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("q", ?h), "key", ?prf, ?dialect, ?pbase) . }
   ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
+  TEMPLATE <templates/compositeKey.rqg>(?om, "q") .
   "} .\n"
 
   # the child side: a graph of its keys, or (rewriting R9) its iteration
@@ -61,7 +67,7 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
   TEMPLATE {
     "    GENERATE \{"
     TEMPLATE { " " ?cnode " <urn:x-rml2sg:child_" ?h "> ?k" ?h " ." }
-    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    ITERATOR <iterators/joinKeys.rqg>(?om) AS ?h .
     TEMPLATE { " " ?cnode " <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p ." } WHERE { FILTER(?records) } .
     TEMPLATE { " ?s <urn:x-rml2sg:child> true ." } WHERE { FILTER(!?keys) } .
     # the graph terms of the iteration
@@ -89,6 +95,7 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
     TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) WHERE { FILTER(?records) } .
     TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("k", ?h), "key", ?rf, ?dialect, ?base) . }
     ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    TEMPLATE <templates/compositeKey.rqg>(?om, "k") .
     TEMPLATE { "BIND(BNODE() AS ?cn) " } WHERE { FILTER(?graphs) } .
     TEMPLATE { TEMPLATE <templates/termMap.rqg>(?gt, <urn:x-rml2sg:none>, "", CONCAT("g_", ?h), "graph", ?rf, ?dialect, ?base) . }
     ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt
@@ -108,11 +115,11 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
     ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
     "\n  WHERE \{ "
     TEMPLATE <templates/termMap.rqg>(?st, ?sc, "", "s", "subject", ?rf, ?dialect, ?base) .
-    TEMPLATE {
-      TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("kx", ?h), "key", ?rf, ?dialect, ?base) .
-      "BIND(COALESCE(?kx" ?h ", <urn:x-rml2sg:none>) AS ?x" ?h ") ?o <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ."
-    }
+    TEMPLATE { TEMPLATE <templates/termMap.rqg>(?jt, <urn:x-rml2sg:none>, ?jr, CONCAT("kx", ?h), "key", ?rf, ?dialect, ?base) . }
     ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?jt ?jr ?pt2 ?pr2 .
+    TEMPLATE <templates/compositeKey.rqg>(?om, "kx") .
+    TEMPLATE { "BIND(COALESCE(?kx" ?h ", <urn:x-rml2sg:none>) AS ?x" ?h ") ?o <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ." }
+    ITERATOR <iterators/joinKeys.rqg>(?om) AS ?h .
     "\n    "
     TEMPLATE <templates/termMap.rqg>(?pt, ?pc, "", "p", "predicate", ?rf, ?dialect, ?base) .
     "\n  } .\n"
@@ -124,7 +131,7 @@ TEMPLATE <templates/join.rqg>(?tm, ?pom, ?pt, ?pc, ?om, ?rf, ?prf, ?dialect, ?ba
     TEMPLATE { " ?c <urn:x-rml2sg:subject> ?s ; <urn:x-rml2sg:predicate> ?p . ?r <urn:x-rml2sg:subject> ?o ." }
     WHERE { FILTER(?records) } .
     TEMPLATE { " " ?cvar " <urn:x-rml2sg:child_" ?h "> ?x" ?h " . " ?pvar " <urn:x-rml2sg:parent_" ?h "> ?x" ?h " ." }
-    ITERATOR <iterators/joinConditions.rqg>(?om) AS ?h ?ct ?cr ?jt ?jr .
+    ITERATOR <iterators/joinKeys.rqg>(?om) AS ?h .
     TEMPLATE { " ?s <urn:x-rml2sg:child> true . ?o <urn:x-rml2sg:parent> true ." } WHERE { FILTER(!?keys) } .
     TEMPLATE { " OPTIONAL \{ ?c <urn:x-rml2sg:graph_" ?h "> ?g_" ?h " }" }
     ITERATOR <iterators/graphMaps.rqg>(?tm, ?pom) AS ?h ?gt .
@@ -143,38 +150,32 @@ WHERE {
   BIND(COALESCE(?sc0, <urn:x-rml2sg:none>) AS ?sc)
   BIND(IF(isIRI(?tm), CONCAT("<", STR(?tm), ">"), "[]") AS ?tmText)
   BIND(IF(isIRI(?ptm), CONCAT("<", STR(?ptm), ">"), "[]") AS ?ptmText)
-  # one node per iteration when there are several keys or when the predicate
-  # depends on the child iteration; direct key triples otherwise
+  # one node per iteration when the predicate or a graph depends on the child
+  # iteration; direct key triples otherwise (several conditions: one composite
+  # key, iterators/joinKeys.rqg)
   BIND(EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j1 } AS ?keys)
   # graph maps with an expression, in the subject map or in ?pom
   BIND(EXISTS { { ?st (rr:graphMap|rmlc:graphMap) ?gm } UNION { ?pom (rr:graphMap|rmlc:graphMap) ?gm }
                 ?gm (rr:template|rmlc:template|rml:reference|rmlc:reference|rr:column|rmlc:functionExecution) ?gv } AS ?graphs)
-  BIND((EXISTS { ?om (rr:joinCondition|rmlc:joinCondition) ?j2, ?j3 . FILTER(?j2 != ?j3) }
-        || EXISTS { ?pt (rr:template|rmlc:template|rml:reference|rmlc:reference) ?pv } || ?graphs) AS ?records)
+  BIND((EXISTS { ?pt (rr:template|rmlc:template|rml:reference|rmlc:reference) ?pv } || ?graphs) AS ?records)
   # rewriting R9 (README.md): the child, a CSV source (not a logical view),
-  # is read as a stream when the join has one condition, a constant
-  # predicate, no graph map with an expression (the direct form), and when
-  # the parent's subject depends on the parent's reference of the condition
-  # only (an IRI template whose references are all that reference, or that
-  # reference): each child row then finds at most one parent subject, and the
-  # join costs the rows of the child. It is exact in any case: the parent
-  # side is the same graph, and a row of the child generates the triples of
-  # its key that the graph of the child keys would.
+  # is read as a stream when the join has a constant predicate, no graph map
+  # with an expression (the direct form), conditions given as references, and
+  # when the parent's subject depends on the parent's references of the
+  # conditions only (an IRI template whose references are all among them, at
+  # least one; or one of them): each child row then finds at most one parent
+  # subject, and the join costs the rows of the child. It is exact in any
+  # case: the parent side is the same graph, and a row of the child generates
+  # the triples of its key (one condition) or of its composite key (several,
+  # templates/compositeKey.rqg) that the graph of the child keys would.
   BIND(!?records && ?keys && ?rf = "CSV"
        && NOT EXISTS { ?tm (rml:logicalSource|rmlc:logicalSource)/rmlc:viewOn ?anyView }
        && NOT EXISTS { ?om (rr:joinCondition|rmlc:joinCondition)/(rmlc:childMap|rmlc:parentMap) ?anyJm }
        && NOT EXISTS { ?psm (rmlc:functionExecution|rmlc:condition|rmlc:quotedTriplesMap|rmlc:gather) ?anyPf }
        && NOT EXISTS { ?psm (rr:termType|rmlc:termType) ?ptt FILTER(?ptt IN (rr:BlankNode, rmlc:BlankNode, rr:Literal, rmlc:Literal)) }
-       && EXISTS {
-         ?om (rr:joinCondition|rmlc:joinCondition)/(rr:parent|rmlc:parent) ?spr .
-         { ?psm (rr:template|rmlc:template) ?sptpl } UNION { ?psm (rml:reference|rmlc:reference|rr:column) ?spref }
-         FILTER(IF(BOUND(?sptpl),
-                   !CONTAINS(STR(?sptpl), "\\") && !REGEX(STR(?spr), "[\\\\\{}]")
-                   && CONTAINS(STR(?sptpl), CONCAT("\{", STR(?spr), "}"))
-                   && STRLEN(STR(?sptpl)) - STRLEN(REPLACE(STR(?sptpl), CONCAT("\{", STR(?spr), "}"), "", "q"))
-                      = (STRLEN(STR(?sptpl)) - STRLEN(REPLACE(STR(?sptpl), "\{", "", "q"))) * STRLEN(CONCAT("\{", STR(?spr), "}")),
-                   STR(?spref) = STR(?spr)))
-       } AS ?stream)
+       # the parent subject depends on the parent references of the conditions
+       # only (rml2sparql-generate.rqg, urn:x-rml2sg:parentOnKey)
+       && EXISTS { ?om <urn:x-rml2sg:parentOnKey> true } AS ?stream)
   BIND(IF(?graphs, "?cn", IF(?records, "_:c", "?s")) AS ?cnode)
   BIND(IF(?records, "_:r", "?o") AS ?pnode)
   # in the join pattern, the iteration nodes are variables
